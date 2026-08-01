@@ -1,0 +1,6 @@
+apiVersion: v2
+name: gateshift-operator
+description: GateShift Kubernetes Operator for Ingress → Gateway API migrations
+type: application
+version: 0.2.0
+appVersion: "0.2.0"

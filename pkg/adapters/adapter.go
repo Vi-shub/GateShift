@@ -1,0 +1,152 @@
+// Package adapters defines the plug-in annotation translation engine.
+//
+// Difficulty levels:
+//
+//	Level1 — Direct Gateway API HTTPRoute filter mappings
+//	Level2 — Provider-specific Policy / Certificate CRDs
+//	Level3 — Untranslatable nginx magic (snippets, Lua, auth-url)
+package adapters
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/gateshift/gateshift/pkg/ir"
+)
+
+// Level classifies how hard an annotation is to migrate.
+type Level int
+
+const (
+	Level1 Level = 1 // Direct standard Gateway API mapping
+	Level2 Level = 2 // Provider extension / secondary CRD
+	Level3 Level = 3 // Hard / impossible — flag for humans
+)
+
+func (l Level) String() string {
+	switch l {
+	case Level1:
+		return "L1"
+	case Level2:
+		return "L2"
+	case Level3:
+		return "L3"
+	default:
+		return fmt.Sprintf("L%d", int(l))
+	}
+}
+
+// Meta identifies the source Ingress for audit findings.
+type Meta struct {
+	IngressName string
+	Namespace   string
+}
+
+// Context is mutable state adapters write into during Transform.
+type Context struct {
+	Provider     ir.Provider
+	Meta         Meta
+	Annotations  map[string]string
+	Filters      []ir.FilterIR
+	Policies     []ir.PolicyIR
+	Certificates []ir.CertificateIR
+	Findings     []ir.AuditFinding
+	TLS          *ir.TLSIR
+	Claimed      map[string]bool
+}
+
+// Claim marks annotation keys as handled (for multi-key adapters).
+func (c *Context) Claim(keys ...string) {
+	if c.Claimed == nil {
+		c.Claimed = map[string]bool{}
+	}
+	for _, k := range keys {
+		c.Claimed[k] = true
+	}
+}
+
+// AddFinding appends a classified audit finding.
+func (c *Context) AddFinding(key, value string, status ir.Status, level Level, target, msg string) {
+	c.Claim(key)
+	c.Findings = append(c.Findings, ir.AuditFinding{
+		Key:         key,
+		Value:       value,
+		Status:      status,
+		Level:       int(level),
+		Target:      target,
+		Message:     msg,
+		IngressName: c.Meta.IngressName,
+		Namespace:   c.Meta.Namespace,
+	})
+}
+
+// AnnotationAdapter is a plug-in that handles one annotation family.
+type AnnotationAdapter interface {
+	Name() string
+	Level() Level
+	CanHandle(key string) bool
+	Transform(key, value string, ctx *Context) error
+}
+
+// Registry dispatches annotations to registered adapters.
+type Registry struct {
+	adapters []AnnotationAdapter
+}
+
+// NewRegistry returns a registry with the given adapters.
+func NewRegistry(list ...AnnotationAdapter) *Registry {
+	return &Registry{adapters: append([]AnnotationAdapter{}, list...)}
+}
+
+// Register appends an adapter.
+func (r *Registry) Register(a AnnotationAdapter) {
+	r.adapters = append(r.adapters, a)
+}
+
+// Translate runs matching adapters over an annotation map.
+func (r *Registry) Translate(annotations map[string]string, provider ir.Provider, meta Meta) *Context {
+	ctx := &Context{
+		Provider:    provider,
+		Meta:        meta,
+		Annotations: annotations,
+		Claimed:     map[string]bool{},
+	}
+	if len(annotations) == 0 {
+		return ctx
+	}
+
+	keys := make([]string, 0, len(annotations))
+	for k := range annotations {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		if ctx.Claimed[key] {
+			continue
+		}
+		value := annotations[key]
+		matched := false
+		for _, a := range r.adapters {
+			if !a.CanHandle(key) {
+				continue
+			}
+			matched = true
+			_ = a.Transform(key, value, ctx)
+			ctx.Claim(key)
+			break
+		}
+		if !matched && isMigrationAnnotation(key) {
+			ctx.AddFinding(key, value, ir.StatusUntranslatable, Level3, "",
+				fmt.Sprintf("Annotation %s has no registered GateShift adapter", key))
+		}
+	}
+	return ctx
+}
+
+func isMigrationAnnotation(key string) bool {
+	return strings.HasPrefix(key, "nginx.ingress.kubernetes.io/") ||
+		strings.HasPrefix(key, "cert-manager.io/") ||
+		strings.HasPrefix(key, "nginx.org/")
+}

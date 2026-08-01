@@ -1,0 +1,19 @@
+apiVersion: gateshift.io/v1alpha1
+kind: MigrationRequest
+metadata:
+  name: checkout-service-migration
+  namespace: shop
+spec:
+  sourceIngressRef:
+    name: checkout
+    namespace: shop
+  targetGatewayRef:
+    name: prod-gateway
+  targetProvider: EnvoyGateway
+  gatewayClassName: envoy
+  dryRun: true
+  gitops:
+    githubRepo: "my-org/checkout-service"
+    autoCreatePR: false
+    branchPrefix: "gateshift/"
+    baseBranch: main

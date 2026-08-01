@@ -1,0 +1,238 @@
+package nginx
+
+import (
+	"strings"
+
+	"github.com/gateshift/gateshift/pkg/adapters"
+	"github.com/gateshift/gateshift/pkg/ir"
+)
+
+// CertManagerAdapter binds cert-manager issuer annotations to Certificate + Gateway TLS (Level 2).
+type CertManagerAdapter struct{}
+
+func (CertManagerAdapter) Name() string          { return "cert-manager" }
+func (CertManagerAdapter) Level() adapters.Level { return adapters.Level2 }
+func (CertManagerAdapter) CanHandle(key string) bool {
+	return key == AnnCertManagerClusterIssuer || key == AnnCertManagerIssuer
+}
+
+func (CertManagerAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	value = strings.TrimSpace(value)
+	if ctx.TLS == nil {
+		ctx.TLS = &ir.TLSIR{Mode: "Terminate"}
+	}
+	cert := ir.CertificateIR{
+		Name:       ctx.Meta.IngressName + "-cert",
+		Namespace:  ctx.Meta.Namespace,
+		SecretName: ctx.Meta.IngressName + "-tls",
+	}
+	if key == AnnCertManagerClusterIssuer {
+		ctx.TLS.ClusterIssuer = value
+		cert.ClusterIssuer = value
+	} else {
+		ctx.TLS.Issuer = value
+		cert.Issuer = value
+	}
+	ctx.Certificates = append(ctx.Certificates, cert)
+	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+		"Certificate/Gateway.listeners[].tls",
+		"cert-manager issuer mapped to Certificate CR + Gateway TLS binding")
+	return nil
+}
+
+// AffinityAdapter maps session affinity → Level 2 SessionPersistence / vendor policy.
+type AffinityAdapter struct{}
+
+func (AffinityAdapter) Name() string          { return "affinity" }
+func (AffinityAdapter) Level() adapters.Level { return adapters.Level2 }
+func (AffinityAdapter) CanHandle(key string) bool {
+	return key == AnnAffinity || key == AnnSessionCookieName
+}
+
+func (AffinityAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	cookie := ctx.Annotations[AnnSessionCookieName]
+	if cookie == "" {
+		cookie = "INGRESSCOOKIE"
+	}
+	pol := ir.PolicyIR{
+		Kind:      ir.PolicySessionAffinity,
+		Name:      ctx.Meta.IngressName + "-affinity",
+		Namespace: ctx.Meta.Namespace,
+		Provider:  ctx.Provider,
+		TargetRef: ir.ParentRefIR{Name: ctx.Meta.IngressName, Namespace: ctx.Meta.Namespace},
+		Spec: map[string]any{
+			"apiVersion":   "gateshift.io/v1alpha1",
+			"kind":         "SessionAffinityPolicy",
+			"affinity":     ctx.Annotations[AnnAffinity],
+			"cookieName":   cookie,
+			"featureGate":  "SessionPersistence",
+		},
+	}
+	if ctx.Provider == ir.ProviderEnvoyGateway {
+		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
+		pol.Spec["kind"] = "BackendTrafficPolicy"
+		pol.Spec["sessionPersistence"] = map[string]any{
+			"sessionName":   cookie,
+			"type":          "Cookie",
+			"absoluteTimeout": "3600s",
+		}
+	}
+	ctx.Policies = append(ctx.Policies, pol)
+	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+		"SessionPersistence / vendor policy",
+		"Session affinity requires Extended Gateway API or vendor policy")
+	if key == AnnAffinity {
+		if v, ok := ctx.Annotations[AnnSessionCookieName]; ok {
+			ctx.AddFinding(AnnSessionCookieName, v, ir.StatusRequiresPolicy, adapters.Level2, "", "Consumed by affinity adapter")
+		}
+	}
+	return nil
+}
+
+// IPAllowAdapter maps whitelist/denylist-source-range → Level 2 SecurityPolicy.
+type IPAllowAdapter struct{}
+
+func (IPAllowAdapter) Name() string          { return "ip-filter" }
+func (IPAllowAdapter) Level() adapters.Level { return adapters.Level2 }
+func (IPAllowAdapter) CanHandle(key string) bool {
+	return key == AnnWhitelistSourceRange || key == AnnDenylistSourceRange
+}
+
+func (IPAllowAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	cidrs := splitCSV(value)
+	action := "Allow"
+	if key == AnnDenylistSourceRange {
+		action = "Deny"
+	}
+	defaultAction := "Deny"
+	if action == "Deny" {
+		defaultAction = "Allow"
+	}
+	pol := ir.PolicyIR{
+		Kind:      ir.PolicyIPFilter,
+		Name:      ctx.Meta.IngressName + "-ipfilter",
+		Namespace: ctx.Meta.Namespace,
+		Provider:  ctx.Provider,
+		TargetRef: ir.ParentRefIR{Name: ctx.Meta.IngressName, Namespace: ctx.Meta.Namespace},
+		Spec: map[string]any{
+			"action": action,
+			"cidrs":  cidrs,
+		},
+	}
+	switch ctx.Provider {
+	case ir.ProviderEnvoyGateway:
+		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
+		pol.Spec["kind"] = "SecurityPolicy"
+		pol.Spec["authorization"] = map[string]any{
+			"defaultAction": defaultAction,
+			"rules": []any{
+				map[string]any{
+					"action": action,
+					"principal": map[string]any{
+						"clientCIDRs": cidrs,
+					},
+				},
+			},
+		}
+	default:
+		pol.Spec["apiVersion"] = "gateshift.io/v1alpha1"
+		pol.Spec["kind"] = "IPFilterPolicy"
+	}
+	ctx.Policies = append(ctx.Policies, pol)
+	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+		"SecurityPolicy / IP allow list",
+		"Source IP filtering requires a vendor SecurityPolicy CRD")
+	return nil
+}
+
+// TimeoutBodyAdapter maps proxy timeouts / body size → Level 2 BackendTrafficPolicy.
+type TimeoutBodyAdapter struct{}
+
+func (TimeoutBodyAdapter) Name() string          { return "proxy-timeouts" }
+func (TimeoutBodyAdapter) Level() adapters.Level { return adapters.Level2 }
+func (TimeoutBodyAdapter) CanHandle(key string) bool {
+	return key == AnnProxyBodySize || key == AnnProxyReadTimeout || key == AnnProxySendTimeout || key == AnnBackendProtocol
+}
+
+func (TimeoutBodyAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	pol := ir.PolicyIR{
+		Kind:      ir.PolicyBackendTuning,
+		Name:      ctx.Meta.IngressName + "-backend",
+		Namespace: ctx.Meta.Namespace,
+		Provider:  ctx.Provider,
+		TargetRef: ir.ParentRefIR{Name: ctx.Meta.IngressName, Namespace: ctx.Meta.Namespace},
+		Spec: map[string]any{
+			"apiVersion": "gateshift.io/v1alpha1",
+			"kind":       "BackendTrafficPolicy",
+		},
+	}
+	if ctx.Provider == ir.ProviderEnvoyGateway {
+		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
+		pol.Spec["kind"] = "BackendTrafficPolicy"
+	}
+	switch key {
+	case AnnProxyBodySize:
+		pol.Spec["maxRequestBodySize"] = value
+	case AnnProxyReadTimeout:
+		pol.Spec["readTimeout"] = value + "s"
+	case AnnProxySendTimeout:
+		pol.Spec["sendTimeout"] = value + "s"
+	case AnnBackendProtocol:
+		pol.Spec["backendProtocol"] = value
+	}
+	ctx.Policies = append(ctx.Policies, pol)
+	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+		"BackendTrafficPolicy",
+		"Proxy tuning maps to provider BackendTrafficPolicy fields")
+	return nil
+}
+
+// CanaryAdapter maps canary annotations → Level 2 weighted backend / header match notes.
+type CanaryAdapter struct{}
+
+func (CanaryAdapter) Name() string          { return "canary" }
+func (CanaryAdapter) Level() adapters.Level { return adapters.Level2 }
+func (CanaryAdapter) CanHandle(key string) bool {
+	return key == AnnCanary || key == AnnCanaryWeight || key == AnnCanaryByHeader
+}
+
+func (CanaryAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+		"HTTPRoute.spec.rules[].backendRefs.weight / matches.headers",
+		"Canary Ingresses should be merged into a single weighted HTTPRoute manually or via GateShift canary merge (planned)")
+	return nil
+}
+
+// RegexAdapter flags use-regex as Level 2 Extended path match.
+type RegexAdapter struct{}
+
+func (RegexAdapter) Name() string          { return "use-regex" }
+func (RegexAdapter) Level() adapters.Level { return adapters.Level2 }
+func (RegexAdapter) CanHandle(key string) bool {
+	return key == AnnUseRegex || key == AnnUpstreamHashBy
+}
+
+func (RegexAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	if key == AnnUseRegex && isTruthy(value) {
+		ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+			"HTTPRoute path type=RegularExpression",
+			"Regex paths are Gateway API Extended — validate controller support")
+		return nil
+	}
+	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+		"BackendTrafficPolicy consistentHash",
+		"Upstream hash requires provider-specific load balancer policy")
+	return nil
+}
+
+func splitCSV(v string) []string {
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}

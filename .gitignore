@@ -1,0 +1,34 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/gateshift
+
+# Test / coverage
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Go workspace local
+vendor/
+
+# Env / secrets
+.env
+.env.*
+*.pem
+kubeconfig
+
+# Local GitOps dry-run output
+.gateshift-pr/
