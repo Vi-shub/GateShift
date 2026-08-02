@@ -40,20 +40,70 @@ func (CertManagerAdapter) Transform(key, value string, ctx *adapters.Context) er
 	return nil
 }
 
-// AffinityAdapter maps session affinity → Level 2 SessionPersistence / vendor policy.
+// AffinityAdapter maps session affinity + session-cookie-* family → Level 2 policy.
 type AffinityAdapter struct{}
 
 func (AffinityAdapter) Name() string          { return "affinity" }
 func (AffinityAdapter) Level() adapters.Level { return adapters.Level2 }
 func (AffinityAdapter) CanHandle(key string) bool {
-	return key == AnnAffinity || key == AnnSessionCookieName
+	switch key {
+	case AnnAffinity, AnnSessionCookieName, AnnSessionCookieExpires, AnnSessionCookieMaxAge,
+		AnnSessionCookieSecure, AnnSessionCookieSameSite, AnnSessionCookieConditionalSameSiteNone,
+		AnnSessionCookiePath, AnnSessionCookieChangeOnFailure, AnnSessionCookieHash:
+		return true
+	default:
+		return false
+	}
+}
+
+func affinitySiblingKeys() []string {
+	return []string{
+		AnnAffinity,
+		AnnSessionCookieName,
+		AnnSessionCookieExpires,
+		AnnSessionCookieMaxAge,
+		AnnSessionCookieSecure,
+		AnnSessionCookieSameSite,
+		AnnSessionCookieConditionalSameSiteNone,
+		AnnSessionCookiePath,
+		AnnSessionCookieChangeOnFailure,
+		AnnSessionCookieHash,
+	}
 }
 
 func (AffinityAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	// Run once for the whole cookie-affinity family.
+	for _, s := range affinitySiblingKeys() {
+		if s == key {
+			continue
+		}
+		if ctx.Claimed[s] {
+			ctx.Claim(key)
+			return nil
+		}
+	}
+
 	cookie := ctx.Annotations[AnnSessionCookieName]
 	if cookie == "" {
 		cookie = "INGRESSCOOKIE"
 	}
+
+	expires := strings.TrimSpace(ctx.Annotations[AnnSessionCookieExpires])
+	maxAge := strings.TrimSpace(ctx.Annotations[AnnSessionCookieMaxAge])
+	sameSite := strings.TrimSpace(ctx.Annotations[AnnSessionCookieSameSite])
+	secure := ctx.Annotations[AnnSessionCookieSecure]
+	conditionalNone := ctx.Annotations[AnnSessionCookieConditionalSameSiteNone]
+	path := strings.TrimSpace(ctx.Annotations[AnnSessionCookiePath])
+	changeOnFailure := ctx.Annotations[AnnSessionCookieChangeOnFailure]
+	hash := strings.TrimSpace(ctx.Annotations[AnnSessionCookieHash])
+
+	timeout := "3600s"
+	if maxAge != "" {
+		timeout = maxAge + "s"
+	} else if expires != "" {
+		timeout = expires + "s"
+	}
+
 	pol := ir.PolicyIR{
 		Kind:      ir.PolicySessionAffinity,
 		Name:      ctx.Meta.IngressName + "-affinity",
@@ -61,31 +111,81 @@ func (AffinityAdapter) Transform(key, value string, ctx *adapters.Context) error
 		Provider:  ctx.Provider,
 		TargetRef: ir.ParentRefIR{Name: ctx.Meta.IngressName, Namespace: ctx.Meta.Namespace},
 		Spec: map[string]any{
-			"apiVersion":   "gateshift.io/v1alpha1",
-			"kind":         "SessionAffinityPolicy",
-			"affinity":     ctx.Annotations[AnnAffinity],
-			"cookieName":   cookie,
-			"featureGate":  "SessionPersistence",
+			"apiVersion":  "gateshift.io/v1alpha1",
+			"kind":        "SessionAffinityPolicy",
+			"affinity":    ctx.Annotations[AnnAffinity],
+			"cookieName":  cookie,
+			"featureGate": "SessionPersistence",
 		},
 	}
+	if expires != "" {
+		pol.Spec["cookieExpires"] = expires
+	}
+	if maxAge != "" {
+		pol.Spec["cookieMaxAge"] = maxAge
+	}
+	if sameSite != "" {
+		pol.Spec["cookieSameSite"] = sameSite
+	}
+	if secure != "" {
+		pol.Spec["cookieSecure"] = isTruthy(secure)
+	}
+	if conditionalNone != "" {
+		pol.Spec["cookieConditionalSameSiteNone"] = isTruthy(conditionalNone)
+	}
+	if path != "" {
+		pol.Spec["cookiePath"] = path
+	}
+	if changeOnFailure != "" {
+		pol.Spec["cookieChangeOnFailure"] = isTruthy(changeOnFailure)
+	}
+	if hash != "" {
+		pol.Spec["cookieHash"] = hash
+	}
+
 	if ctx.Provider == ir.ProviderEnvoyGateway {
 		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
 		pol.Spec["kind"] = "BackendTrafficPolicy"
-		pol.Spec["sessionPersistence"] = map[string]any{
-			"sessionName":   cookie,
-			"type":          "Cookie",
-			"absoluteTimeout": "3600s",
+		session := map[string]any{
+			"sessionName":     cookie,
+			"type":            "Cookie",
+			"absoluteTimeout": timeout,
 		}
+		cookieCfg := map[string]any{}
+		if sameSite != "" {
+			cookieCfg["sameSite"] = sameSite
+		}
+		if secure != "" {
+			cookieCfg["secure"] = isTruthy(secure)
+		}
+		if path != "" {
+			cookieCfg["path"] = path
+		}
+		if len(cookieCfg) > 0 {
+			session["cookieConfig"] = cookieCfg
+		}
+		if conditionalNone != "" {
+			session["conditionalSameSiteNone"] = isTruthy(conditionalNone)
+		}
+		pol.Spec["sessionPersistence"] = session
 	}
+
 	ctx.Policies = append(ctx.Policies, pol)
-	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+	ctx.AddFinding(AnnAffinity, ctx.Annotations[AnnAffinity], ir.StatusRequiresPolicy, adapters.Level2,
 		"SessionPersistence / vendor policy",
-		"Session affinity requires Extended Gateway API or vendor policy")
-	if key == AnnAffinity {
-		if v, ok := ctx.Annotations[AnnSessionCookieName]; ok {
-			ctx.AddFinding(AnnSessionCookieName, v, ir.StatusRequiresPolicy, adapters.Level2, "", "Consumed by affinity adapter")
+		"Session affinity + cookie attributes mapped to SessionPersistence / BackendTrafficPolicy")
+
+	for _, sibling := range affinitySiblingKeys() {
+		if sibling == AnnAffinity {
+			continue
+		}
+		if v, ok := ctx.Annotations[sibling]; ok {
+			ctx.AddFinding(sibling, v, ir.StatusRequiresPolicy, adapters.Level2,
+				"SessionPersistence cookie attributes",
+				"Consumed by affinity/session-cookie adapter")
 		}
 	}
+	ctx.Claim(affinitySiblingKeys()...)
 	return nil
 }
 
