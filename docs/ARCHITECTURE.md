@@ -1,8 +1,10 @@
-# GateShift Architecture & Design View
+# Architecture
 
-## The hard truth about Ingress → Gateway API
+This document describes GateShift’s conversion pipeline, difficulty model, and production cutover guidance.
 
-Parsing annotation key/value strings in Go is trivial. **Semantic translation is not.**
+## Ingress → Gateway API difficulty
+
+Parsing annotation key/value strings is straightforward. **Semantic translation is not.**
 
 Difficulty is not evenly distributed across annotations:
 

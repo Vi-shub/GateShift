@@ -1,12 +1,10 @@
-# How GateShift becomes more robust than ingress2gateway
+# Differentiation from ingress2gateway
 
-## The real gap
+## Gap
 
-`ingress2gateway` is excellent at **structure**: hosts, paths, backends, TLS secrets → Gateway/HTTPRoute.
+`ingress2gateway` is strong on **structure** (hosts, paths, backends, TLS secrets → Gateway/HTTPRoute) and weaker on **behavior** (annotations and snippets that production traffic depends on).
 
-It is weak at **behavior**: the annotation surface that makes production Ingresses actually work.
-
-GateShift’s bet: **never silently drop annotations**. Classify, promote when safe, fail closed when not.
+GateShift’s approach: **never silently drop annotations**. Classify, promote when safe, fail closed when not.
 
 ## Do not train an ML model (yet)
 

@@ -1,115 +1,106 @@
-# Testing GateShift (WSL + KinD)
+# Testing Guide
 
-You already have the right stack:
+This document describes how to verify GateShift locally and on a KinD cluster.
 
-- **Docker Desktop** (WSL2 backend) — running
-- **Ubuntu WSL** — running
-- **kubectl** — installed
-- **KinD** — installed by the e2e script if missing
+## Test layers
 
-## Fast path (recommended)
+| Layer | Command / tool | Pass criteria |
+|-------|----------------|---------------|
+| Unit | `make test` / `go test ./...` | All packages green |
+| Offline CLI | `audit` / `convert` / `validate` / `coverage` | Expected L1/L2/L3 outcomes |
+| Conformance gate | `validate` on snippet fixtures | Must **FAIL** on hard L3 |
+| Cluster smoke | `scripts/test-smoke.sh` | Envoy returns backend body (`checkout-ok`) |
 
-### 0) One-time: build a **Linux** binary (PowerShell)
+## Offline CLI (any OS)
 
-WSL cannot run `gateshift.exe` (`Exec format error`).
+```bash
+make test
+make build
+
+gateshift audit -f examples/ingress-checkout.yaml --target=envoy-gateway
+gateshift convert -f examples/ingress-checkout.yaml --target=envoy-gateway -o gateway.yaml
+gateshift validate -f examples/ingress-checkout.yaml --target=envoy-gateway
+gateshift coverage -f examples/ingress-checkout.yaml
+
+# Expected FAIL (L3 block):
+gateshift validate -f examples/ingress-with-snippet.yaml --target=envoy-gateway
+```
+
+Windows PowerShell uses `.\bin\gateshift.exe` instead of `gateshift`.
+
+## Linux binary for WSL
+
+WSL cannot execute `gateshift.exe` (`Exec format error`). Cross-compile from Windows:
 
 ```powershell
-cd C:\Users\smsha\Desktop\GateShift
 $env:GOOS="linux"; $env:GOARCH="amd64"; go build -o bin/gateshift ./cmd/gateshift
 ```
 
-### 1) Smoke test on KinD (Ubuntu WSL)
+## KinD smoke test (recommended)
+
+Prerequisites: Docker Desktop, Ubuntu WSL, `kubectl`, `kind` (`~/bin` is fine).
 
 ```bash
-cd /mnt/c/Users/smsha/Desktop/GateShift
+cd /mnt/c/Users/<user>/Desktop/GateShift   # adjust path
 export PATH=$HOME/bin:$PATH
 bash scripts/test-smoke.sh
 ```
 
-Expected: `PASS` and curl body `checkout-ok`.
+The script will:
 
-> Do **not** use `curl http://127.0.0.1:8080` on KinD without MetalLB — LB EXTERNAL-IP stays `<pending>`. The smoke script uses `kubectl port-forward` instead.
+1. Apply Envoy Gateway with `kubectl apply --server-side` (avoids CRD annotation size limits)
+2. Ensure `GatewayClass/envoy` exists
+3. Create a dummy TLS secret for HTTPS listeners
+4. Run `gateshift convert` and apply Gateway + HTTPRoute
+5. `kubectl port-forward` the Envoy proxy Service (KinD LoadBalancers stay `<pending>`)
+6. `curl` with `Host: checkout.example.com`
 
-What the script does:
+Expected output includes: `PASS` and body `checkout-ok`.
 
-1. Creates KinD cluster `gateshift` (ports `8080`/`8443` → node 80/443)
-2. Installs Gateway API CRDs + Envoy Gateway
-3. Runs `gateshift audit|convert|validate|coverage` on the checkout example
-4. Deploys echo backends + applies Gateway/HTTPRoute
-5. Prints `kubectl`/`curl` commands for traffic checks
-
-### Useful flags
-
-```bash
-SKIP_CLUSTER=1 bash scripts/e2e-kind.sh   # reuse existing cluster
-SKIP_EG=1 bash scripts/e2e-kind.sh        # CRDs only (faster, no data plane)
-CLEANUP=1 bash scripts/e2e-kind.sh        # delete cluster when finished
-```
-
-## Manual step-by-step
-
-### 1) Unit / offline tests (PowerShell)
-
-```powershell
-cd C:\Users\smsha\Desktop\GateShift
-go test ./...
-.\bin\gateshift.exe audit -f examples\ingress-checkout.yaml --target=envoy-gateway
-.\bin\gateshift.exe convert -f examples\ingress-checkout.yaml --target=envoy-gateway -o gateway.yaml
-.\bin\gateshift.exe coverage -f examples\ingress-checkout.yaml
-```
-
-### 2) Create cluster (Ubuntu WSL)
+### Manual traffic check
 
 ```bash
-kind create cluster --name gateshift
-kubectl cluster-info --context kind-gateshift
+kubectl -n envoy-gateway-system port-forward svc/envoy-shop-checkout-gateway-a55d33c9 18080:80
+curl -H 'Host: checkout.example.com' http://127.0.0.1:18080/api
 ```
 
-### 3) Install Gateway API + Envoy Gateway
+### Live Ingress audit
 
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
-kubectl apply -f https://github.com/envoyproxy/gateway/releases/download/v1.2.1/install.yaml
-kubectl wait -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available --timeout=5m
-```
-
-### 4) Convert + apply
-
-```bash
-./bin/gateshift.exe convert -f examples/ingress-checkout.yaml --target=envoy-gateway -o /tmp/gs.yaml
-kubectl create ns shop
-# apply backends (see scripts/e2e-kind.sh) then:
-kubectl apply -f /tmp/gs.yaml   # Certificate/Policy may warn if CRDs missing — OK for smoke
-kubectl get gateway,httproute -n shop -o wide
-```
-
-### 5) Live-cluster audit
+`audit --namespace` requires Ingress objects in-cluster (Gateway/HTTPRoute alone is not enough):
 
 ```bash
 kubectl apply -f examples/ingress-checkout.yaml
-./bin/gateshift.exe audit --namespace shop --target=envoy-gateway
+gateshift audit --namespace shop --target=envoy-gateway
 ```
 
-### 6) Traffic check
+### Full e2e script
 
 ```bash
-kubectl get gateway -n shop -o wide
-# once ADDRESS is set (or via kind port-map):
-curl -v -H 'Host: checkout.example.com' http://127.0.0.1:8080/api
+# Reuse cluster, install Envoy Gateway, run suite
+SKIP_CLUSTER=1 bash scripts/e2e-kind.sh
+
+# Faster CRD-only path
+SKIP_CLUSTER=1 SKIP_EG=1 bash scripts/e2e-kind.sh
 ```
 
-## What “pass” means
-
-| Layer | Pass criteria |
-|-------|----------------|
-| Unit tests | `go test ./...` green |
-| Offline CLI | audit/convert/coverage produce expected L1/L2 matrix |
-| Conformance | `validate` fails on snippet example; passes/warns on checkout |
-| Cluster apply | Gateway + HTTPRoute Accepted by Envoy Gateway |
-| Data plane | curl returns backend response for Host header |
-
-## Cleanup
+### Cleanup
 
 ```bash
 kind delete cluster --name gateshift
 ```
+
+## Expanding coverage
+
+1. Add fixtures under `examples/corpus/`
+2. Run `gateshift coverage -f <file>` and note `[GAP]` / `[??]`
+3. Implement adapter or pattern (see [CONTRIBUTING.md](../CONTRIBUTING.md))
+4. Add unit tests; re-run smoke for routing-sensitive changes
+
+## Artifacts
+
+| Path | Purpose |
+|------|---------|
+| `.gateshift-e2e/` | Temp convert/apply YAML from smoke/e2e scripts |
+| `.gateshift-pr/` | Dry-run PR pack from `gateshift migrate` |
+
+Both are gitignored and safe to delete.
