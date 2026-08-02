@@ -23,6 +23,11 @@ func DefaultAdapters() []adapters.AnnotationAdapter {
 		RegexAdapter{},
 		BackendTLSAdapter{},
 		MirrorAdapter{},
+		AccessLogAdapter{},
+		CustomHTTPErrorsAdapter{},
+		DefaultBackendAdapter{},
+		SSLPassthroughAdapter{},
+		BasicAuthAdapter{},
 		// Level 3 (+ pattern promotion)
 		SnippetAdapter{},
 		AuthAdapter{},

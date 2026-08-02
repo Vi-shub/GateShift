@@ -23,7 +23,7 @@ GateShift’s north star: migrate large Ingress fleets to Gateway API **without 
 - [ ] Signed containers for `gateshift-operator`
 - [ ] Helm chart values docs + install NOTES
 - [ ] `--http-only` / TLS secret awareness in convert for lab clusters
-- [ ] Close catalog gaps flagged by `gateshift coverage` (access-log, custom-http-errors, ssl-passthrough, basic-auth, …)
+- [x] Close tracked NGINX catalog gaps (access-log, custom-http-errors, ssl-passthrough, basic-auth, proxy buffering/retries/timeouts, default-backend)
 
 ### P1 — Fleet coverage
 

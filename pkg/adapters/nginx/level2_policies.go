@@ -245,16 +245,36 @@ func (IPAllowAdapter) Transform(key, value string, ctx *adapters.Context) error 
 	return nil
 }
 
-// TimeoutBodyAdapter maps proxy timeouts / body size → Level 2 BackendTrafficPolicy.
+// TimeoutBodyAdapter maps proxy timeouts / body / buffering / retries → BackendTrafficPolicy.
 type TimeoutBodyAdapter struct{}
 
 func (TimeoutBodyAdapter) Name() string          { return "proxy-timeouts" }
 func (TimeoutBodyAdapter) Level() adapters.Level { return adapters.Level2 }
 func (TimeoutBodyAdapter) CanHandle(key string) bool {
-	return key == AnnProxyBodySize || key == AnnProxyReadTimeout || key == AnnProxySendTimeout || key == AnnBackendProtocol
+	switch key {
+	case AnnProxyBodySize, AnnProxyReadTimeout, AnnProxySendTimeout, AnnBackendProtocol,
+		AnnProxyConnectTimeout, AnnProxyBuffering, AnnClientBodyBufferSize, AnnProxyNextUpstream:
+		return true
+	default:
+		return false
+	}
+}
+
+func proxyTuningKeys() []string {
+	return []string{
+		AnnProxyBodySize, AnnProxyReadTimeout, AnnProxySendTimeout, AnnBackendProtocol,
+		AnnProxyConnectTimeout, AnnProxyBuffering, AnnClientBodyBufferSize, AnnProxyNextUpstream,
+	}
 }
 
 func (TimeoutBodyAdapter) Transform(key, value string, ctx *adapters.Context) error {
+	for _, s := range proxyTuningKeys() {
+		if s != key && ctx.Claimed[s] {
+			ctx.Claim(key)
+			return nil
+		}
+	}
+
 	pol := ir.PolicyIR{
 		Kind:      ir.PolicyBackendTuning,
 		Name:      ctx.Meta.IngressName + "-backend",
@@ -270,20 +290,44 @@ func (TimeoutBodyAdapter) Transform(key, value string, ctx *adapters.Context) er
 		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
 		pol.Spec["kind"] = "BackendTrafficPolicy"
 	}
-	switch key {
-	case AnnProxyBodySize:
-		pol.Spec["maxRequestBodySize"] = value
-	case AnnProxyReadTimeout:
-		pol.Spec["readTimeout"] = value + "s"
-	case AnnProxySendTimeout:
-		pol.Spec["sendTimeout"] = value + "s"
-	case AnnBackendProtocol:
-		pol.Spec["backendProtocol"] = value
+
+	if v := ctx.Annotations[AnnProxyBodySize]; v != "" {
+		pol.Spec["maxRequestBodySize"] = v
 	}
+	if v := ctx.Annotations[AnnProxyReadTimeout]; v != "" {
+		pol.Spec["readTimeout"] = v + "s"
+	}
+	if v := ctx.Annotations[AnnProxySendTimeout]; v != "" {
+		pol.Spec["sendTimeout"] = v + "s"
+	}
+	if v := ctx.Annotations[AnnProxyConnectTimeout]; v != "" {
+		pol.Spec["connectTimeout"] = v + "s"
+	}
+	if v := ctx.Annotations[AnnBackendProtocol]; v != "" {
+		pol.Spec["backendProtocol"] = v
+	}
+	if v := ctx.Annotations[AnnProxyBuffering]; v != "" {
+		pol.Spec["buffering"] = map[string]any{"enabled": isTruthy(v)}
+	}
+	if v := ctx.Annotations[AnnClientBodyBufferSize]; v != "" {
+		pol.Spec["clientBodyBufferSize"] = v
+	}
+	if v := ctx.Annotations[AnnProxyNextUpstream]; v != "" {
+		pol.Spec["retry"] = map[string]any{
+			"nextUpstream": v,
+			"note":         "Mapped from proxy-next-upstream; verify Envoy retryOn equivalents",
+		}
+	}
+
 	ctx.Policies = append(ctx.Policies, pol)
-	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
-		"BackendTrafficPolicy",
-		"Proxy tuning maps to provider BackendTrafficPolicy fields")
+	for _, k := range proxyTuningKeys() {
+		if v, ok := ctx.Annotations[k]; ok {
+			ctx.AddFinding(k, v, ir.StatusRequiresPolicy, adapters.Level2,
+				"BackendTrafficPolicy",
+				"Proxy tuning maps to provider BackendTrafficPolicy fields")
+		}
+	}
+	ctx.Claim(proxyTuningKeys()...)
 	return nil
 }
 

@@ -54,6 +54,10 @@ type Context struct {
 	Findings     []ir.AuditFinding
 	TLS          *ir.TLSIR
 	Claimed      map[string]bool
+
+	// Optional structured intents consumed by convert.
+	DefaultBackend string // service name or namespace/name from annotation
+	SSLPassthrough bool
 }
 
 // Claim marks annotation keys as handled (for multi-key adapters).

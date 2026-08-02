@@ -65,17 +65,17 @@ func Catalog() []CatalogEntry {
 		{AnnConfigurationSnippet, adapters.Level3, true, "pattern library promotion"},
 		{AnnServerSnippet, adapters.Level3, true, "pattern library promotion"},
 		{AnnModsecuritySnippet, adapters.Level3, true, "always manual / WAF"},
-		// Known but not yet implemented (tracked gaps vs ingress2gateway+)
-		{AnnEnableAccessLog, adapters.Level2, false, "TODO: Observability / access log policy"},
-		{AnnCustomHTTPErrors, adapters.Level2, false, "TODO: custom error pages → filter/direct response"},
-		{AnnDefaultBackend, adapters.Level1, false, "TODO: prefer spec.defaultBackend"},
-		{AnnProxyBuffering, adapters.Level2, false, "TODO: BackendTrafficPolicy buffering"},
-		{AnnProxyNextUpstream, adapters.Level2, false, "TODO: retry policy"},
-		{AnnSSLPassthrough, adapters.Level2, false, "TODO: TLSRoute / passthrough listener"},
-		{AnnAuthType, adapters.Level3, false, "TODO: basic auth → SecurityPolicy"},
-		{AnnAuthSecret, adapters.Level3, false, "TODO: basic auth secret"},
-		{AnnClientBodyBufferSize, adapters.Level2, false, "TODO: body buffer policy"},
-		{AnnProxyConnectTimeout, adapters.Level2, false, "TODO: connect timeout"},
+		// Formerly tracked gaps — now implemented
+		{AnnEnableAccessLog, adapters.Level2, true, "ClientTrafficPolicy / access logging"},
+		{AnnCustomHTTPErrors, adapters.Level2, true, "Custom error page policy scaffold"},
+		{AnnDefaultBackend, adapters.Level1, true, "HTTPRoute catch-all backend"},
+		{AnnProxyBuffering, adapters.Level2, true, "BackendTrafficPolicy buffering"},
+		{AnnProxyNextUpstream, adapters.Level2, true, "BackendTrafficPolicy retry"},
+		{AnnSSLPassthrough, adapters.Level2, true, "TLS Passthrough listener"},
+		{AnnAuthType, adapters.Level2, true, "SecurityPolicy basicAuth"},
+		{AnnAuthSecret, adapters.Level2, true, "SecurityPolicy basicAuth secret"},
+		{AnnClientBodyBufferSize, adapters.Level2, true, "BackendTrafficPolicy body buffer"},
+		{AnnProxyConnectTimeout, adapters.Level2, true, "BackendTrafficPolicy connect timeout"},
 	}
 }
 

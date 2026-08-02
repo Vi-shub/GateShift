@@ -73,7 +73,12 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 	})
 
 	hostnames := collectHostnames(ing)
-	listeners := buildListeners(ing, hostnames, ann.TLS)
+	if ann.SSLPassthrough && ann.TLS != nil {
+		ann.TLS.Mode = "Passthrough"
+	} else if ann.SSLPassthrough {
+		ann.TLS = &ir.TLSIR{Mode: "Passthrough"}
+	}
+	listeners := buildListeners(ing, hostnames, ann.TLS, ann.SSLPassthrough)
 	if opts.IncludeGateway {
 		bundle.Gateways = append(bundle.Gateways, ir.GatewayIR{
 			Name:      gwName,
@@ -102,6 +107,8 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 
 	if ing.Spec.DefaultBackend != nil {
 		route.Rules = append(route.Rules, ruleFromBackend(ing.Spec.DefaultBackend, "/", "PathPrefix", routeFilters))
+	} else if ann.DefaultBackend != "" {
+		route.Rules = append(route.Rules, ruleFromAnnotatedBackend(ann.DefaultBackend, ns, routeFilters))
 	}
 
 	for _, rule := range ing.Spec.Rules {
@@ -235,6 +242,25 @@ func ruleFromBackend(be *networkingv1.IngressBackend, pathValue, pathType string
 	return rule
 }
 
+// ruleFromAnnotatedBackend parses nginx default-backend annotation (name or ns/name).
+func ruleFromAnnotatedBackend(ref, defaultNS string, filters []ir.FilterIR) ir.HTTPRouteRuleIR {
+	name := ref
+	ns := defaultNS
+	if i := strings.Index(ref, "/"); i >= 0 {
+		ns = ref[:i]
+		name = ref[i+1:]
+	}
+	return ir.HTTPRouteRuleIR{
+		Matches: []ir.HTTPMatchIR{{PathType: "PathPrefix", PathValue: "/"}},
+		Filters: append([]ir.FilterIR{}, filters...),
+		Backends: []ir.BackendRefIR{{
+			Name:      name,
+			Namespace: ns,
+			Port:      80,
+		}},
+	}
+}
+
 func collectHostnames(ing *networkingv1.Ingress) []string {
 	seen := map[string]struct{}{}
 	var hosts []string
@@ -260,8 +286,12 @@ func collectHostnames(ing *networkingv1.Ingress) []string {
 	return hosts
 }
 
-func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR) []ir.ListenerIR {
-	hasTLS := len(ing.Spec.TLS) > 0 || tls != nil
+func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR, passthrough bool) []ir.ListenerIR {
+	hasTLS := len(ing.Spec.TLS) > 0 || tls != nil || passthrough
+	tlsMode := "Terminate"
+	if passthrough || (tls != nil && strings.EqualFold(tls.Mode, "Passthrough")) {
+		tlsMode = "Passthrough"
+	}
 	var listeners []ir.ListenerIR
 	if !hasTLS {
 		host := ""
@@ -289,7 +319,7 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 			host = hostnames[0]
 		}
 		secret := ""
-		if tls != nil {
+		if tls != nil && tlsMode != "Passthrough" {
 			secret = tls.SecretName
 		}
 		listeners = append(listeners, ir.ListenerIR{
@@ -297,7 +327,7 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 			Protocol: "HTTPS",
 			Port:     443,
 			Hostname: host,
-			TLS:      &ir.TLSIR{SecretName: secret, Mode: "Terminate"},
+			TLS:      &ir.TLSIR{SecretName: secret, Mode: tlsMode},
 		})
 		return listeners
 	}
@@ -309,14 +339,18 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 			host = hostnames[0]
 		}
 		name := fmt.Sprintf("https-%d", i)
+		secret := t.SecretName
+		if tlsMode == "Passthrough" {
+			secret = ""
+		}
 		listeners = append(listeners, ir.ListenerIR{
 			Name:     name,
 			Protocol: "HTTPS",
 			Port:     443,
 			Hostname: host,
 			TLS: &ir.TLSIR{
-				SecretName: t.SecretName,
-				Mode:       "Terminate",
+				SecretName: secret,
+				Mode:       tlsMode,
 			},
 		})
 	}
@@ -396,10 +430,14 @@ func toGateway(gw ir.GatewayIR) (*gatewayv1.Gateway, error) {
 		}
 		if l.TLS != nil && l.Protocol == "HTTPS" {
 			mode := gatewayv1.TLSModeTerminate
+			if strings.EqualFold(l.TLS.Mode, "Passthrough") {
+				mode = gatewayv1.TLSModePassthrough
+			}
 			listener.TLS = &gatewayv1.GatewayTLSConfig{
 				Mode: &mode,
 			}
-			if l.TLS.SecretName != "" {
+			// CertificateRefs are only valid for Terminate mode.
+			if mode == gatewayv1.TLSModeTerminate && l.TLS.SecretName != "" {
 				ns := gatewayv1.Namespace(gw.Namespace)
 				listener.TLS.CertificateRefs = []gatewayv1.SecretObjectReference{{
 					Name:      gatewayv1.ObjectName(l.TLS.SecretName),
@@ -462,6 +500,10 @@ func toHTTPRoute(route ir.HTTPRouteIR) (*gatewayv1.HTTPRoute, error) {
 						Port: portPtr(b.Port),
 					},
 				},
+			}
+			if b.Namespace != "" {
+				ns := gatewayv1.Namespace(b.Namespace)
+				br.Namespace = &ns
 			}
 			if b.Weight != nil {
 				w := *b.Weight

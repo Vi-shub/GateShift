@@ -1,17 +1,39 @@
-# GateShift
+<p align="center">
+  <img src="Logo/Logo.png" alt="GateShift" width="220"/>
+</p>
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](go.mod)
+<h1 align="center">GateShift</h1>
 
-**GateShift** migrates Kubernetes Ingress resources (including NGINX annotations) to [Gateway API](https://gateway-api.sigs.k8s.io/) with explicit fidelity controls.
+<p align="center">
+  <strong>Ingress → Gateway API migration with annotation fidelity you can trust.</strong>
+</p>
 
-Unlike converters that silently drop annotations, GateShift classifies every feature as:
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"/></a>
+  <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white" alt="Go"/></a>
+  <a href="docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/docs-architecture-0ea5e9" alt="Architecture"/></a>
+  <a href="docs/TESTING.md"><img src="https://img.shields.io/badge/tests-KinD%20smoke-22c55e" alt="Tests"/></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#why-gateshift">Why GateShift</a> ·
+  <a href="#cli-reference">CLI</a> ·
+  <a href="#documentation">Docs</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+---
+
+**GateShift** converts Kubernetes Ingress (including NGINX / cert-manager annotations) into [Gateway API](https://gateway-api.sigs.k8s.io/) manifests — without silently dropping policy.
+
+Every feature is classified and reported:
 
 | Level | Meaning | Behavior |
 |------:|---------|----------|
 | **L1** | Native Gateway API | Emits `HTTPRoute` filters (rewrite, redirect, headers) |
 | **L2** | Provider extension | Emits Policy CRDs (`BackendTrafficPolicy`, `SecurityPolicy`, `Certificate`, …) |
-| **L3** | Untranslatable | Flags snippets/Lua for humans; blocks unsafe apply via `validate` |
+| **L3** | Untranslatable | Flags snippets / Lua for humans; `validate` blocks unsafe apply |
 
 **CLI:** `gateshift` · **Operator:** `gateshift-operator` · **License:** Apache 2.0
 
@@ -22,14 +44,14 @@ Unlike converters that silently drop annotations, GateShift classifies every fea
 | Capability | Baseline `ingress2gateway` | GateShift |
 |------------|----------------------------|-----------|
 | Hosts / paths / backends | Yes | Yes |
-| Annotation fidelity | Often dropped | L1/L2/L3 matrix + readiness score |
+| Annotation fidelity | Often dropped | L1 / L2 / L3 matrix + readiness score |
 | Snippets | Ignored | Pattern library (promote safe idioms) |
-| Canary Ingress pairs | Manual | Weighted HTTPRoute merge |
+| Canary Ingress pairs | Manual | Weighted `HTTPRoute` merge |
 | Controller fit | Rarely checked | `validate` capability matrix |
 | GitOps | Manual | `migrate` PR / dry-run artifacts |
 | In-cluster | N/A | `MigrationRequest` operator |
 
-Design deep-dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · comparison notes: [docs/BEATING_INGRESS2GATEWAY.md](docs/BEATING_INGRESS2GATEWAY.md)
+Design deep-dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · comparison: [docs/BEATING_INGRESS2GATEWAY.md](docs/BEATING_INGRESS2GATEWAY.md)
 
 ---
 
@@ -41,8 +63,8 @@ Requirements: Go 1.22+, optional Docker + KinD for cluster tests.
 git clone https://github.com/gateshift/gateshift.git
 cd gateshift
 make tidy test build
-# Linux binary:   bin/gateshift
-# Windows binary: bin/gateshift.exe   (make build on Windows)
+# Linux:   bin/gateshift
+# Windows: bin/gateshift.exe
 ```
 
 Cross-compile for WSL / Linux from Windows:
@@ -81,7 +103,9 @@ Live cluster:
 gateshift audit --namespace shop --target=envoy-gateway
 ```
 
-Targets: `standard` · `envoy-gateway` · `cilium` · `istio` · `kong`
+**Targets:** `standard` · `envoy-gateway` · `cilium` · `istio` · `kong`
+
+**End-to-end demo** (real app on KinD): [examples/demo-podinfo](examples/demo-podinfo) · `bash scripts/demo-podinfo.sh`
 
 ---
 
@@ -94,8 +118,20 @@ Targets: `standard` · `envoy-gateway` · `cilium` · `istio` · `kong`
 | `diff` | Structural Ingress vs Gateway API view |
 | `validate` | Provider capability / conformance gate |
 | `migrate` | Convert + GitHub PR or local dry-run pack |
-| `coverage` | Catalog coverage and per-file `[OK]/`[GAP]`/`[??]` |
+| `coverage` | Catalog coverage and per-key `[OK]` / `[GAP]` / `[??]` |
 | `version` | Print CLI version |
+
+---
+
+## Annotation coverage
+
+**L1** — `rewrite-target`, `ssl-redirect`, `force-ssl-redirect`, permanent/temporal redirects, CORS, `from-to-www-redirect`, `app-root`, `x-forwarded-prefix`
+
+**L2** — rate limits, cert-manager issuers, affinity / session cookies, IP allow/deny, proxy timeouts & body size, backend TLS, canary merge, mirroring, `use-regex`, auth-url scaffolds (Envoy), and the rest of the tracked catalog
+
+**L3 / pattern-assisted** — `configuration-snippet`, `server-snippet`, `modsecurity-snippet`
+
+Tracked catalog coverage is **100%** of listed keys (`gateshift coverage`). Snippets stay L3 by design: pattern-assisted, never silently dropped.
 
 ---
 
@@ -125,18 +161,6 @@ The reconciler watches `MigrationRequest`, converts the referenced Ingress, upda
 
 ---
 
-## Annotation coverage (summary)
-
-**L1:** `rewrite-target`, `ssl-redirect`, `force-ssl-redirect`, permanent/temporal redirects, CORS, `from-to-www-redirect`, `app-root`, `x-forwarded-prefix`
-
-**L2:** rate limits, cert-manager issuers, affinity, IP allow/deny, proxy timeouts/body size, backend TLS, canary merge, mirroring, `use-regex`, auth-url scaffolds (Envoy)
-
-**L3 / pattern-assisted:** `configuration-snippet`, `server-snippet`, `modsecurity-snippet`
-
-Run `gateshift coverage` for the full tracked catalog and gaps.
-
----
-
 ## Repository layout
 
 ```
@@ -155,10 +179,11 @@ pkg/cluster/               Live Ingress listing
 pkg/gitops/                GitHub PR + dry-run artifacts
 charts/gateshift-operator/ Helm chart
 config/crd/                CRD manifests
-examples/                  Sample Ingress + MigrationRequest
+examples/                  Sample Ingress + demos
 examples/corpus/           Regression fixtures
-scripts/                   KinD e2e / smoke tests
+scripts/                   KinD e2e / smoke / demo
 docs/                      Architecture, testing, roadmap
+Logo/                      Project brand asset
 ```
 
 ---
@@ -172,6 +197,8 @@ docs/                      Architecture, testing, roadmap
 | [docs/BEATING_INGRESS2GATEWAY.md](docs/BEATING_INGRESS2GATEWAY.md) | Differentiation and coverage strategy |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Near-term and longer-term work |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to extend adapters and patterns |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community standards |
 
 ---
 
@@ -182,10 +209,11 @@ docs/                      Architecture, testing, roadmap
 | CLI convert / audit / validate | Usable |
 | Pattern library / canary merge | Usable |
 | KinD smoke path (Envoy Gateway) | Proven |
-| Operator / Helm | Scaffold — production-harden before wide deploy |
+| podinfo end-to-end demo | Proven |
+| Operator / Helm | Scaffold — harden before wide deploy |
 | Multi-controller (Traefik, ALB, GCE) | Planned |
 
-This project prioritizes **safe, reviewable migration** over claiming 100% automatic conversion.
+GateShift prioritizes **safe, reviewable migration** over claiming fully automatic conversion of every Ingress edge case.
 
 ---
 
