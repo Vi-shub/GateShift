@@ -14,7 +14,9 @@ Annotation parsing is easy. **Translation difficulty depends on the annotation:*
 | **L2** | Needs controller Policy CRDs | Emit Envoy/Cilium/Istio/Kong policy stubs (`BackendTrafficPolicy`, `SecurityPolicy`, `Certificate`) |
 | **L3** | Nginx magic (snippets/Lua) | Flag as untranslatable + actionable hints — never invent Envoy config |
 
-Full rationale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+Full rationale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · beating ingress2gateway: [docs/BEATING_INGRESS2GATEWAY.md](docs/BEATING_INGRESS2GATEWAY.md)
+
+**Robustness extras (vs baseline ingress2gateway):** pattern library for snippets, canary merge, provider Policy CRDs, readiness score, `coverage` catalog.
 
 ## Quick start
 
@@ -45,6 +47,7 @@ Live cluster audit:
 | `diff` | Structural Ingress vs Gateway API comparison |
 | `validate` | Controller capability matrix (conformance) |
 | `migrate` | Convert + GitOps PR (or local dry-run artifacts) |
+| `coverage` | Annotation catalog coverage + per-file gap analysis |
 
 ## Milestone status
 

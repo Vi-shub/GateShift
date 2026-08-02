@@ -113,6 +113,7 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 			if pathValue == "" {
 				pathValue = "/"
 			}
+			useRegex := isTruthyAnnotation(ing.Annotations["nginx.ingress.kubernetes.io/use-regex"])
 			pathType := "PathPrefix"
 			if path.PathType != nil {
 				switch *path.PathType {
@@ -121,17 +122,34 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 				case networkingv1.PathTypePrefix:
 					pathType = "PathPrefix"
 				case networkingv1.PathTypeImplementationSpecific:
-					pathType = "PathPrefix"
-					bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-						Key:         "pathType",
-						Value:       string(*path.PathType),
-						Status:      ir.StatusRequiresPolicy,
-						Target:      "HTTPRoute.spec.rules[].matches[].path.type",
-						Message:     "ImplementationSpecific pathType lowered to PathPrefix; verify regex intent manually",
-						IngressName: ing.Name,
-						Namespace:   ns,
-					})
+					if useRegex {
+						pathType = "RegularExpression"
+						bundle.Findings = append(bundle.Findings, ir.AuditFinding{
+							Key:         "pathType",
+							Value:       string(*path.PathType),
+							Status:      ir.StatusRequiresPolicy,
+							Level:       2,
+							Target:      "HTTPRoute.spec.rules[].matches[].path.type=RegularExpression",
+							Message:     "ImplementationSpecific + use-regex → RegularExpression (Extended feature)",
+							IngressName: ing.Name,
+							Namespace:   ns,
+						})
+					} else {
+						pathType = "PathPrefix"
+						bundle.Findings = append(bundle.Findings, ir.AuditFinding{
+							Key:         "pathType",
+							Value:       string(*path.PathType),
+							Status:      ir.StatusRequiresPolicy,
+							Level:       2,
+							Target:      "HTTPRoute.spec.rules[].matches[].path.type",
+							Message:     "ImplementationSpecific pathType lowered to PathPrefix; verify regex intent manually",
+							IngressName: ing.Name,
+							Namespace:   ns,
+						})
+					}
 				}
+			} else if useRegex {
+				pathType = "RegularExpression"
 			}
 			be := path.Backend
 			route.Rules = append(route.Rules, ruleFromBackend(&be, pathValue, pathType, routeFilters))
@@ -157,8 +175,35 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 		}
 	}
 
+	// Fill concrete www hostname for from-to-www-redirect placeholders.
+	for i := range route.Rules {
+		for j := range route.Rules[i].Filters {
+			f := &route.Rules[i].Filters[j]
+			if f.Kind == ir.FilterRequestRedirect && f.RedirectHostname != nil && *f.RedirectHostname == "www." {
+				if len(hostnames) > 0 {
+					h := hostnames[0]
+					if strings.HasPrefix(h, "www.") {
+						h = strings.TrimPrefix(h, "www.")
+					} else {
+						h = "www." + h
+					}
+					f.RedirectHostname = &h
+				}
+			}
+		}
+	}
+
 	bundle.HTTPRoutes = append(bundle.HTTPRoutes, route)
 	return bundle, nil
+}
+
+func isTruthyAnnotation(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func splitRedirectFilters(filters []ir.FilterIR) (routeFilters, redirectFilters []ir.FilterIR) {
@@ -418,6 +463,10 @@ func toHTTPRoute(route ir.HTTPRouteIR) (*gatewayv1.HTTPRoute, error) {
 					},
 				},
 			}
+			if b.Weight != nil {
+				w := *b.Weight
+				br.Weight = &w
+			}
 			hr.BackendRefs = append(hr.BackendRefs, br)
 		}
 		out.Spec.Rules = append(out.Spec.Rules, hr)
@@ -463,8 +512,29 @@ func toHTTPRouteFilter(f ir.FilterIR) (gatewayv1.HTTPRouteFilter, bool) {
 			h := gatewayv1.PreciseHostname(*f.RedirectHostname)
 			rd.Hostname = &h
 		}
+		if f.RedirectPath != nil {
+			t := gatewayv1.FullPathHTTPPathModifier
+			if f.RedirectPathType == "ReplacePrefixMatch" {
+				t = gatewayv1.PrefixMatchHTTPPathModifier
+				rd.Path = &gatewayv1.HTTPPathModifier{Type: t, ReplacePrefixMatch: f.RedirectPath}
+			} else {
+				rd.Path = &gatewayv1.HTTPPathModifier{Type: t, ReplaceFullPath: f.RedirectPath}
+			}
+		}
 		filter.RequestRedirect = rd
 		return filter, true
+	case ir.FilterExtensionRef:
+		// RequestMirror and other extensions are emitted as ExtensionRef placeholders.
+		if f.ExtensionKind == "RequestMirror" {
+			filter := gatewayv1.HTTPRouteFilter{Type: gatewayv1.HTTPRouteFilterRequestMirror}
+			filter.RequestMirror = &gatewayv1.HTTPRequestMirrorFilter{
+				BackendRef: gatewayv1.BackendObjectReference{
+					Name: gatewayv1.ObjectName(f.ExtensionName),
+				},
+			}
+			return filter, true
+		}
+		return gatewayv1.HTTPRouteFilter{}, false
 	case ir.FilterResponseHeader:
 		filter := gatewayv1.HTTPRouteFilter{Type: gatewayv1.HTTPRouteFilterResponseHeaderModifier}
 		mod := &gatewayv1.HTTPHeaderFilter{}

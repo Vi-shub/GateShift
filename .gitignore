@@ -32,3 +32,4 @@ kubeconfig
 
 # Local GitOps dry-run output
 .gateshift-pr/
+.gateshift-e2e/

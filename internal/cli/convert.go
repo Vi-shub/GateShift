@@ -42,20 +42,9 @@ func newConvertCmd() *cobra.Command {
 				GatewayName:    gwName,
 				IncludeGateway: !noGW,
 			}
-			combined := &ir.MigrationBundle{}
-			for _, ing := range ingresses {
-				bundle, err := convert.FromIngress(ing, opts)
-				if err != nil {
-					return exitErr(err)
-				}
-				combined.Findings = append(combined.Findings, bundle.Findings...)
-				combined.HTTPRoutes = append(combined.HTTPRoutes, bundle.HTTPRoutes...)
-				combined.Gateways = append(combined.Gateways, bundle.Gateways...)
-				combined.Policies = append(combined.Policies, bundle.Policies...)
-				combined.Certificates = append(combined.Certificates, bundle.Certificates...)
-				if combined.SourceNamespace == "" {
-					combined.SourceNamespace = bundle.SourceNamespace
-				}
+			combined, err := convert.FromIngresses(ingresses, opts)
+			if err != nil {
+				return exitErr(err)
 			}
 			yamlBytes, err := convert.EmitYAML(combined)
 			if err != nil {

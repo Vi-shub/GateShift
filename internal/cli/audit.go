@@ -66,17 +66,9 @@ func newAuditCmd() *cobra.Command {
 				return exitErr(fmt.Errorf("provide --file or --namespace (live cluster audit)"))
 			}
 
-			combined := &ir.MigrationBundle{}
-			for _, ing := range ingresses {
-				bundle, err := convert.FromIngress(ing, opts)
-				if err != nil {
-					return exitErr(err)
-				}
-				combined.Findings = append(combined.Findings, bundle.Findings...)
-				combined.HTTPRoutes = append(combined.HTTPRoutes, bundle.HTTPRoutes...)
-				combined.Gateways = append(combined.Gateways, bundle.Gateways...)
-				combined.Policies = append(combined.Policies, bundle.Policies...)
-				combined.Certificates = append(combined.Certificates, bundle.Certificates...)
+			combined, err := convert.FromIngresses(ingresses, opts)
+			if err != nil {
+				return exitErr(err)
 			}
 			audit.WriteMatrix(cmd.OutOrStdout(), combined)
 			return nil

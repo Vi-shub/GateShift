@@ -2,22 +2,15 @@ package nginx
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/gateshift/gateshift/pkg/adapters"
 	"github.com/gateshift/gateshift/pkg/ir"
+	"github.com/gateshift/gateshift/pkg/patterns"
 )
 
-var (
-	reSetHeader = regexp.MustCompile(`(?i)more_set_headers\s+"([^:]+):\s*([^"]+)"`)
-	reReturn    = regexp.MustCompile(`(?i)return\s+(\d+)`)
-	reIfUA      = regexp.MustCompile(`(?i)if\s*\(\s*\$http_user_agent`)
-)
-
-// SnippetAdapter detects raw nginx/Lua injections (Level 3).
-// It never invents Envoy config; it produces actionable audit findings and,
-// when a trivial pattern is recognized, optional hints for manual remapping.
+// SnippetAdapter uses the curated pattern library to promote safe idioms out of
+// configuration-snippet / server-snippet. Residual nginx magic stays L3.
 type SnippetAdapter struct{}
 
 func (SnippetAdapter) Name() string          { return "snippets" }
@@ -27,35 +20,44 @@ func (SnippetAdapter) CanHandle(key string) bool {
 }
 
 func (SnippetAdapter) Transform(key, value string, ctx *adapters.Context) error {
-	hints := analyzeSnippet(value)
-	msg := "NGINX snippets/Lua cannot be auto-translated; rewrite as Gateway filters or controller policies manually"
-	if len(hints) > 0 {
-		msg = msg + " | hints: " + strings.Join(hints, "; ")
+	if key == AnnModsecuritySnippet {
+		ctx.AddFinding(key, truncate(value, 120), ir.StatusUntranslatable, adapters.Level3, "",
+			"ModSecurity snippets have no Gateway API equivalent — keep WAF at Gateway/controller layer")
+		return nil
 	}
-	ctx.AddFinding(key, truncate(value, 120), ir.StatusUntranslatable, adapters.Level3, "", msg)
+
+	result := patterns.AnalyzeSnippet(value, ctx.Provider, ctx.Meta.IngressName, ctx.Meta.Namespace)
+
+	// Always attach promoted filters/policies when patterns fire.
+	ctx.Filters = append(ctx.Filters, result.Filters...)
+	ctx.Policies = append(ctx.Policies, result.Policies...)
+
+	switch {
+	case result.FullyCovered:
+		ctx.AddFinding(key, truncate(value, 120), ir.StatusDirect, adapters.Level1,
+			"HTTPRoute filters via pattern library",
+			fmt.Sprintf("Snippet fully matched by patterns (%d idioms, coverage=%.0f%%): %s",
+				len(result.Matches), result.CoverageRatio*100, strings.Join(result.Hints, "; ")))
+	case len(result.Matches) > 0:
+		// Partial promotion — still needs human review for residual lines.
+		msg := fmt.Sprintf("Partial snippet promotion (coverage=%.0f%%). Residual: %s",
+			result.CoverageRatio*100, strings.Join(result.UnmatchedLines, " | "))
+		if len(result.Hints) > 0 {
+			msg += " | " + strings.Join(result.Hints, "; ")
+		}
+		ctx.AddFinding(key, truncate(value, 120), ir.StatusRequiresPolicy, adapters.Level2,
+			"mixed pattern promotion + residual L3", msg)
+	default:
+		msg := "NGINX snippets/Lua cannot be auto-translated; rewrite as Gateway filters or controller policies manually"
+		if len(result.Hints) > 0 {
+			msg += " | hints: " + strings.Join(result.Hints, "; ")
+		}
+		ctx.AddFinding(key, truncate(value, 120), ir.StatusUntranslatable, adapters.Level3, "", msg)
+	}
 	return nil
 }
 
-func analyzeSnippet(snippet string) []string {
-	var hints []string
-	if m := reSetHeader.FindAllStringSubmatch(snippet, -1); len(m) > 0 {
-		for _, g := range m {
-			hints = append(hints, fmt.Sprintf("consider ResponseHeaderModifier set %s=%s", strings.TrimSpace(g[1]), strings.TrimSpace(g[2])))
-		}
-	}
-	if reIfUA.MatchString(snippet) {
-		hints = append(hints, "user-agent deny/allow needs SecurityPolicy or Lua→Wasm rewrite")
-	}
-	if m := reReturn.FindStringSubmatch(snippet); len(m) == 2 {
-		hints = append(hints, fmt.Sprintf("HTTP %s response may map to HTTPRoute DirectResponse (if supported) or filter chain", m[1]))
-	}
-	if strings.Contains(snippet, "lua_") || strings.Contains(snippet, "access_by_lua") {
-		hints = append(hints, "Lua blocks require manual redesign — no portable Gateway API equivalent")
-	}
-	return hints
-}
-
-// AuthAdapter flags external auth annotations as Level 3 (or Level 2 hint for Envoy SecurityPolicy).
+// AuthAdapter flags external auth annotations as Level 3 (or Level 2 scaffold for Envoy).
 type AuthAdapter struct{}
 
 func (AuthAdapter) Name() string          { return "auth" }
@@ -65,7 +67,17 @@ func (AuthAdapter) CanHandle(key string) bool {
 }
 
 func (AuthAdapter) Transform(key, value string, ctx *adapters.Context) error {
-	if ctx.Provider == ir.ProviderEnvoyGateway && key == AnnAuthURL {
+	if key == AnnAuthTLSSecret {
+		ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+			"BackendTLSPolicy / client cert auth",
+			"mTLS client auth maps to BackendTLSPolicy or Gateway listener clientCertificateRef")
+		return nil
+	}
+	if ctx.Provider == ir.ProviderEnvoyGateway && (key == AnnAuthURL || key == AnnAuthSignin) {
+		uri := ctx.Annotations[AnnAuthURL]
+		if uri == "" {
+			uri = value
+		}
 		pol := ir.PolicyIR{
 			Kind:      ir.PolicyKind("ExtAuth"),
 			Name:      ctx.Meta.IngressName + "-extauth",
@@ -78,16 +90,18 @@ func (AuthAdapter) Transform(key, value string, ctx *adapters.Context) error {
 				"extAuth": map[string]any{
 					"http": map[string]any{
 						"backendRefs": []any{},
-						"uri":         value,
+						"uri":         uri,
 					},
 				},
-				"note": "Populate backendRefs to your auth service; GateShift only scaffolds the SecurityPolicy",
+				"signin": ctx.Annotations[AnnAuthSignin],
+				"note":   "Populate backendRefs to your auth service; GateShift only scaffolds the SecurityPolicy",
 			},
 		}
 		ctx.Policies = append(ctx.Policies, pol)
 		ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
 			"SecurityPolicy.extAuth",
-			"auth-url scaffolded as Envoy Gateway SecurityPolicy — complete backendRefs manually")
+			"auth-url/signin scaffolded as Envoy Gateway SecurityPolicy — complete backendRefs manually")
+		ctx.Claim(AnnAuthURL, AnnAuthSignin)
 		return nil
 	}
 	ctx.AddFinding(key, value, ir.StatusUntranslatable, adapters.Level3, "",

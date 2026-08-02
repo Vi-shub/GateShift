@@ -10,6 +10,9 @@ func DefaultAdapters() []adapters.AnnotationAdapter {
 		SSLRedirectAdapter{},
 		ExternalRedirectAdapter{},
 		CORSAdapter{},
+		WWWRedirectAdapter{},
+		AppRootAdapter{},
+		XForwardedPrefixAdapter{},
 		// Level 2
 		RateLimitAdapter{},
 		CertManagerAdapter{},
@@ -18,7 +21,9 @@ func DefaultAdapters() []adapters.AnnotationAdapter {
 		TimeoutBodyAdapter{},
 		CanaryAdapter{},
 		RegexAdapter{},
-		// Level 3
+		BackendTLSAdapter{},
+		MirrorAdapter{},
+		// Level 3 (+ pattern promotion)
 		SnippetAdapter{},
 		AuthAdapter{},
 	}

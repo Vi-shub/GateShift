@@ -15,6 +15,7 @@ func WriteMatrix(w io.Writer, bundle *ir.MigrationBundle) {
 	direct, policy, blocked := bundle.Summary()
 	fmt.Fprintf(w, "GateShift Audit Matrix\n")
 	fmt.Fprintf(w, "======================\n")
+	fmt.Fprintf(w, "Readiness: %d/100 (%s)\n", bundle.ReadinessScore(), bundle.ReadinessLabel())
 	fmt.Fprintf(w, "Summary: %d L1 direct | %d L2 policy | %d L3 manual\n\n", direct, policy, blocked)
 
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)

@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	version = "0.2.0-dev"
+	version = "0.3.0-dev"
 )
 
 // NewRootCommand builds the gateshift CLI root.
@@ -16,7 +16,7 @@ func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "gateshift",
 		Short:         "Migrate Kubernetes Ingress resources to Gateway API",
-		Long:          "GateShift converts legacy NGINX/in-cluster Ingress specs and annotations into Gateway API CRDs using a Level 1/2/3 plug-in adapter engine, with audit, convert, diff, validate, and migrate workflows.",
+		Long:          "GateShift converts legacy NGINX/in-cluster Ingress specs and annotations into Gateway API CRDs using a Level 1/2/3 plug-in adapter engine, pattern library, canary merge, and coverage scoring — built to beat silent annotation drops from baseline ingress2gateway.",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
@@ -25,6 +25,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(newDiffCmd())
 	cmd.AddCommand(newValidateCmd())
 	cmd.AddCommand(newMigrateCmd())
+	cmd.AddCommand(newCoverageCmd())
 	cmd.AddCommand(newVersionCmd())
 	return cmd
 }

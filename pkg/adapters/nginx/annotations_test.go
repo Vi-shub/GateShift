@@ -39,19 +39,33 @@ func TestTranslateLimitRPSRequiresPolicy(t *testing.T) {
 	}
 }
 
-func TestTranslateSnippetUntranslatable(t *testing.T) {
+func TestTranslateSnippetPartialPromotion(t *testing.T) {
 	ann := map[string]string{
 		AnnConfigurationSnippet: `more_set_headers "X-Custom: True"; if ($http_user_agent ~* "bad-bot") { return 403; }`,
 	}
 	res := Translate(ann, ir.ProviderStandard, AuditMeta{IngressName: "x", Namespace: "ns"})
-	if len(res.Findings) == 0 || res.Findings[0].Status != ir.StatusUntranslatable {
-		t.Fatalf("expected untranslatable finding, got %#v", res.Findings)
+	if len(res.Filters) == 0 {
+		t.Fatal("expected header filter promotion from snippet patterns")
 	}
-	if res.Findings[0].Level != int(adapters.Level3) {
-		t.Fatalf("expected L3, got %d", res.Findings[0].Level)
+	if len(res.Findings) == 0 {
+		t.Fatal("expected findings")
 	}
-	if res.Findings[0].Message == "" || !contains(res.Findings[0].Message, "hints:") {
-		t.Fatalf("expected actionable hints, got %q", res.Findings[0].Message)
+	// Partial promotion: headers L1-ish filters + residual UA → L2 requires_policy
+	if res.Findings[0].Status != ir.StatusRequiresPolicy && res.Findings[0].Status != ir.StatusUntranslatable {
+		t.Fatalf("expected partial or manual status, got %#v", res.Findings[0])
+	}
+}
+
+func TestTranslateSnippetFullyPromoted(t *testing.T) {
+	ann := map[string]string{
+		AnnConfigurationSnippet: `more_set_headers "X-Frame-Options: DENY";`,
+	}
+	res := Translate(ann, ir.ProviderStandard, AuditMeta{IngressName: "x", Namespace: "ns"})
+	if len(res.Findings) == 0 || res.Findings[0].Status != ir.StatusDirect {
+		t.Fatalf("expected fully promoted snippet as L1 direct, got %#v", res.Findings)
+	}
+	if res.Findings[0].Level != int(adapters.Level1) {
+		t.Fatalf("expected L1, got %d", res.Findings[0].Level)
 	}
 }
 
