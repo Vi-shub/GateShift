@@ -38,7 +38,9 @@ make scoreboard
 
 Committed snapshot: [scoreboard.md](scoreboard.md)
 
-Latest numbers are regenerated in [scoreboard.md](scoreboard.md) (`make scoreboard`). Corpus currently includes curated `public/`, ingress-nginx `github/`, Traefik provider fixtures, and community samples (80+ Ingress YAML files).
+Latest numbers: [scoreboard.md](scoreboard.md) · how to read: [SCOREBOARD.md](SCOREBOARD.md) (`make scoreboard`).
+
+Corpus: curated `public/`, ingress-nginx `github/`, Traefik fixtures, and community samples (**137** Ingress YAML files).
 
 \*Structure-only baseline counts migration annotation keys present on fixtures (annotations that a hosts/paths/TLS-only conversion would not represent).
 

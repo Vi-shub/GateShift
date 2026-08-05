@@ -4,11 +4,13 @@ Fixtures used by `gateshift scoreboard` and adapter regression tests.
 
 | Tree | Source | Approx. count |
 |------|--------|---------------|
-| `public/` | Curated GateShift shapes | 15 |
+| `public/` | Curated GateShift shapes | 17 |
 | `github/` | [kubernetes/ingress-nginx](https://github.com/kubernetes/ingress-nginx) docs/examples (+ local extracts) | ~20 |
-| `traefik/` | [traefik/traefik](https://github.com/traefik/traefik) ingress-nginx provider fixtures | ~55 |
-| `community/` | Community migration samples (e.g. ingress2keg) | 1+ |
+| `traefik/` | [traefik/traefik](https://github.com/traefik/traefik) ingress-nginx provider fixtures | ~90 |
+| `community/` | [ingress2keg](https://github.com/log1cb0mb/ingress2keg) + [ing-switch](https://github.com/saiyam1814/ing-switch) samples | ~12 |
 | `*.yaml` (root) | Extra local cases | 2 |
+
+How to read results: [docs/SCOREBOARD.md](../../docs/SCOREBOARD.md)
 
 ```bash
 gateshift scoreboard -f examples/corpus -o docs/scoreboard.md
@@ -26,6 +28,7 @@ Non-Ingress YAML (Deployments, Services) under the tree is skipped automatically
 | [ingress-nginx `docs/examples`](https://github.com/kubernetes/ingress-nginx/tree/main/docs/examples) | Official rewrite, affinity, auth, TLS, canary, gRPC |
 | [Traefik ingress-nginx fixtures](https://github.com/traefik/traefik/tree/master/pkg/provider/kubernetes/ingress-nginx/fixtures/ingresses) | ~100 single-annotation unit fixtures |
 | [log1cb0mb/ingress2keg](https://github.com/log1cb0mb/ingress2keg) | Comprehensive annotation → Gateway API sample |
+| [saiyam1814/ing-switch](https://github.com/saiyam1814/ing-switch) `examples/` | Scenario suite (auth, canary, CORS, gRPC, full-featured) |
 | [cert-manager Ingress docs](https://cert-manager.io/docs/usage/ingress/) | Issuer annotations |
 | [Bitnami charts](https://github.com/bitnami/charts) / [Artifact Hub](https://artifacthub.io/) | Chart Ingresses with nginx annotations |
 | [stefanprodan/podinfo](https://github.com/stefanprodan/podinfo) | App demo (`examples/demo-podinfo`) |

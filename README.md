@@ -139,7 +139,9 @@ make scoreboard
 | Unreported | Always **0** — every migration annotation becomes a finding |
 | Structure-only baseline | Annotation keys a hosts/paths/TLS-only conversion would omit |
 
-Providers scored: **Envoy Gateway**, **Cilium**, **Istio**, **Kong**, and portable **standard**. See [docs/COMPARE.md](docs/COMPARE.md) and the latest [docs/scoreboard.md](docs/scoreboard.md).
+Providers scored: **Envoy Gateway**, **Cilium**, **Istio**, **Kong**, and portable **standard**.
+
+How to read it: [docs/SCOREBOARD.md](docs/SCOREBOARD.md) · latest numbers: [docs/scoreboard.md](docs/scoreboard.md) · related tools: [docs/COMPARE.md](docs/COMPARE.md)
 
 ---
 
@@ -229,6 +231,7 @@ Logo/                      Project brand asset
 | Doc | Description |
 |-----|-------------|
 | [docs/COMPARE.md](docs/COMPARE.md) | Related tools + provider matrix |
+| [docs/SCOREBOARD.md](docs/SCOREBOARD.md) | How to read the corpus scoreboard |
 | [docs/scoreboard.md](docs/scoreboard.md) | Generated corpus scoreboard snapshot |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline, adapter model, cutover strategy |
 | [docs/ANNOTATION_FIDELITY.md](docs/ANNOTATION_FIDELITY.md) | Classification model and coverage loop |

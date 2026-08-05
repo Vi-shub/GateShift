@@ -2,6 +2,7 @@
 
 | File | Upstream |
 |------|----------|
-| `ingress2keg-full-sample.yaml` | [log1cb0mb/ingress2keg](https://github.com/log1cb0mb/ingress2keg) `samples/full-sample.yaml` — comprehensive NGINX annotation reference for Gateway API migration |
+| `ingress2keg-full-sample.yaml` | [log1cb0mb/ingress2keg](https://github.com/log1cb0mb/ingress2keg) `samples/full-sample.yaml` |
+| `ingswitch-*.yaml` | [saiyam1814/ing-switch](https://github.com/saiyam1814/ing-switch) `examples/` — annotated migration scenarios |
 
-Apache-2.0 / project license of upstream applies to their samples; kept for regression scoring.
+Upstream licenses apply to their samples; kept for regression scoring.

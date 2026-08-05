@@ -21,6 +21,8 @@ annotation reporting versus a structure-only baseline.
 | 13 | `13-permanent-temporal-redirect.yaml` | Permanent + www redirect |
 | 14 | `14-denylist-modsecurity.yaml` | IP deny + ModSecurity L3 |
 | 15 | `15-app-root-www-redirect.yaml` | App-root + www + SSL redirect |
+| 16 | `16-mirror-traffic.yaml` | Request mirroring |
+| 17 | `17-websocket-grpc-mix.yaml` | WebSocket snippet + gRPC backend |
 
 Also see `examples/corpus/github/`, `traefik/`, and `community/` for upstream fixtures.
 
