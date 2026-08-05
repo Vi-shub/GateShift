@@ -1,0 +1,30 @@
+# Last catalog keys that were missing from the corpus + related cookie variants.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: catalog-remaining
+  namespace: demo
+  annotations:
+    cert-manager.io/issuer: letsencrypt-ns
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-name: GATESHIFTROUTE
+    nginx.ingress.kubernetes.io/session-cookie-change-on-failure: "true"
+    nginx.ingress.kubernetes.io/session-cookie-hash: sha1
+    nginx.ingress.kubernetes.io/session-cookie-path: /
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - remaining.example.com
+      secretName: remaining-tls
+  rules:
+    - host: remaining.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app
+                port:
+                  number: 80

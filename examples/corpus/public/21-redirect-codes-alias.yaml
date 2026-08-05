@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: redirect-codes
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/permanent-redirect: https://new.example.com
+    nginx.ingress.kubernetes.io/permanent-redirect-code: "308"
+    nginx.ingress.kubernetes.io/temporal-redirect: https://temp.example.com
+    nginx.ingress.kubernetes.io/temporal-redirect-code: "307"
+    nginx.ingress.kubernetes.io/server-alias: alias.example.com,www.alias.example.com
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: old.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: unused
+                port:
+                  number: 80

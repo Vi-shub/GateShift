@@ -233,6 +233,7 @@ Logo/                      Project brand asset
 | [docs/COMPARE.md](docs/COMPARE.md) | Related tools + provider matrix |
 | [docs/SCOREBOARD.md](docs/SCOREBOARD.md) | How to read the corpus scoreboard |
 | [docs/scoreboard.md](docs/scoreboard.md) | Generated corpus scoreboard snapshot |
+| [docs/CORPUS_GAPS.md](docs/CORPUS_GAPS.md) | Uncatalogued annotation candidates from corpus |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline, adapter model, cutover strategy |
 | [docs/ANNOTATION_FIDELITY.md](docs/ANNOTATION_FIDELITY.md) | Classification model and coverage loop |
 | [docs/TESTING.md](docs/TESTING.md) | Unit, CLI, CI, and KinD smoke testing |

@@ -1,0 +1,54 @@
+# High-frequency annotations present in the wild / corpus but not yet in GateShift catalog.
+# Expected: coverage reports [??] until adapters are added — still must not be silently ignored in audit.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: uncatalogued-hot
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/load-balance: least_conn
+    nginx.ingress.kubernetes.io/affinity-mode: persistent
+    nginx.ingress.kubernetes.io/enable-opentelemetry: "true"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+    nginx.ingress.kubernetes.io/canary-by-cookie: always
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+    nginx.ingress.kubernetes.io/canary-weight-total: "100"
+    nginx.ingress.kubernetes.io/auth-response-headers: Authorization,X-Auth-Request-User
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 16k
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/service-upstream: "true"
+    nginx.ingress.kubernetes.io/upstream-vhost: backend.internal
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: hot.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hot
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: uncatalogued-hot-stable
+  namespace: demo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: hot.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hot-stable
+                port:
+                  number: 80

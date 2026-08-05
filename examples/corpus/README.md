@@ -4,13 +4,14 @@ Fixtures used by `gateshift scoreboard` and adapter regression tests.
 
 | Tree | Source | Approx. count |
 |------|--------|---------------|
-| `public/` | Curated GateShift shapes | 17 |
+| `public/` | Curated GateShift shapes (incl. catalog + uncatalogued gaps) | 21 |
 | `github/` | [kubernetes/ingress-nginx](https://github.com/kubernetes/ingress-nginx) docs/examples (+ local extracts) | ~20 |
-| `traefik/` | [traefik/traefik](https://github.com/traefik/traefik) ingress-nginx provider fixtures | ~90 |
-| `community/` | [ingress2keg](https://github.com/log1cb0mb/ingress2keg) + [ing-switch](https://github.com/saiyam1814/ing-switch) samples | ~12 |
+| `traefik/` | [traefik/traefik](https://github.com/traefik/traefik) positive ingress-nginx fixtures | ~100 |
+| `traefik-edge/` | Traefik negative / invalid / missing-secret cases | ~20 |
+| `community/` | [ingress2keg](https://github.com/log1cb0mb/ingress2keg) + [ing-switch](https://github.com/saiyam1814/ing-switch) | ~12 |
 | `*.yaml` (root) | Extra local cases | 2 |
 
-How to read results: [docs/SCOREBOARD.md](../../docs/SCOREBOARD.md)
+How to read results: [docs/SCOREBOARD.md](../../docs/SCOREBOARD.md) · gap analysis: [docs/CORPUS_GAPS.md](../../docs/CORPUS_GAPS.md)
 
 ```bash
 gateshift scoreboard -f examples/corpus -o docs/scoreboard.md

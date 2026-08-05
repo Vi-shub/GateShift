@@ -23,8 +23,12 @@ annotation reporting versus a structure-only baseline.
 | 15 | `15-app-root-www-redirect.yaml` | App-root + www + SSL redirect |
 | 16 | `16-mirror-traffic.yaml` | Request mirroring |
 | 17 | `17-websocket-grpc-mix.yaml` | WebSocket snippet + gRPC backend |
+| 18 | `18-catalog-gaps-remaining.yaml` | Last catalog keys (issuer, cookie hash/change) |
+| 19 | `19-uncatalogued-high-freq.yaml` | High-freq `[??]` adapter candidates |
+| 20 | `20-auth-tls-deep.yaml` | Full auth-tls-* matrix |
+| 21 | `21-redirect-codes-alias.yaml` | Redirect codes + server-alias |
 
-Also see `examples/corpus/github/`, `traefik/`, and `community/` for upstream fixtures.
+Also see `github/`, `traefik/`, `traefik-edge/`, and `community/`.
 
 ```bash
 gateshift scoreboard -f examples/corpus -o docs/scoreboard.md

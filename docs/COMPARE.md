@@ -40,7 +40,7 @@ Committed snapshot: [scoreboard.md](scoreboard.md)
 
 Latest numbers: [scoreboard.md](scoreboard.md) · how to read: [SCOREBOARD.md](SCOREBOARD.md) (`make scoreboard`).
 
-Corpus: curated `public/`, ingress-nginx `github/`, Traefik fixtures, and community samples (**137** Ingress YAML files).
+Corpus: curated `public/`, ingress-nginx `github/`, full Traefik fixture set (+ edge), and community samples (**170** Ingress YAML files). Catalog keys are all represented; see [CORPUS_GAPS.md](CORPUS_GAPS.md) for uncatalogued `[??]` candidates.
 
 \*Structure-only baseline counts migration annotation keys present on fixtures (annotations that a hosts/paths/TLS-only conversion would not represent).
 
