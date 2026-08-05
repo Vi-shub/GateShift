@@ -14,6 +14,7 @@ import (
 
 	"github.com/gateshift/gateshift/pkg/adapters/nginx"
 	"github.com/gateshift/gateshift/pkg/ir"
+	"github.com/gateshift/gateshift/pkg/nginxquirks"
 )
 
 // Options controls conversion behavior.
@@ -22,16 +23,16 @@ type Options struct {
 	GatewayName    string
 	GatewayClass   string
 	IncludeGateway bool
-}
 
-// DefaultOptions returns sensible defaults for offline conversion.
-func DefaultOptions() Options {
-	return Options{
-		Provider:       ir.ProviderStandard,
-		GatewayName:    "",
-		GatewayClass:   "envoy",
-		IncludeGateway: true,
-	}
+	// PreserveNGINXRegex rewrites paths on regex-forced hosts to case-insensitive
+	// prefix RegularExpression matches (Ingress-NGINX semantics).
+	PreserveNGINXRegex bool
+	// EmitTrailingSlashRedirects adds 301 redirects from /path → /path/ where
+	// Ingress-NGINX would auto-redirect.
+	EmitTrailingSlashRedirects bool
+
+	// quirkHostRegex is set by FromIngresses after multi-Ingress analysis.
+	quirkHostRegex map[string]bool
 }
 
 // FromIngress converts a single Ingress into IR.
@@ -111,16 +112,23 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 		route.Rules = append(route.Rules, ruleFromAnnotatedBackend(ann.DefaultBackend, ns, routeFilters))
 	}
 
+	localRegex := isTruthyAnnotation(ing.Annotations[nginxquirks.AnnUseRegex]) ||
+		strings.TrimSpace(ing.Annotations[nginxquirks.AnnRewriteTarget]) != ""
+
 	for _, rule := range ing.Spec.Rules {
 		if rule.HTTP == nil {
 			continue
 		}
+		host := rule.Host
+		if host == "" {
+			host = "*"
+		}
+		hostRegex := localRegex || opts.quirkHostRegex[host]
 		for _, path := range rule.HTTP.Paths {
 			pathValue := path.Path
 			if pathValue == "" {
 				pathValue = "/"
 			}
-			useRegex := isTruthyAnnotation(ing.Annotations["nginx.ingress.kubernetes.io/use-regex"])
 			pathType := "PathPrefix"
 			if path.PathType != nil {
 				switch *path.PathType {
@@ -129,7 +137,7 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 				case networkingv1.PathTypePrefix:
 					pathType = "PathPrefix"
 				case networkingv1.PathTypeImplementationSpecific:
-					if useRegex {
+					if hostRegex {
 						pathType = "RegularExpression"
 						bundle.Findings = append(bundle.Findings, ir.AuditFinding{
 							Key:         "pathType",
@@ -137,7 +145,7 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 							Status:      ir.StatusRequiresPolicy,
 							Level:       2,
 							Target:      "HTTPRoute.spec.rules[].matches[].path.type=RegularExpression",
-							Message:     "ImplementationSpecific + use-regex → RegularExpression (Extended feature)",
+							Message:     "ImplementationSpecific + Ingress-NGINX regex mode → RegularExpression (Extended feature)",
 							IngressName: ing.Name,
 							Namespace:   ns,
 						})
@@ -155,9 +163,52 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 						})
 					}
 				}
-			} else if useRegex {
+			} else if hostRegex {
 				pathType = "RegularExpression"
 			}
+
+			// Preserve Ingress-NGINX case-insensitive prefix regex semantics.
+			if opts.PreserveNGINXRegex && hostRegex {
+				pathValue = nginxquirks.PreserveRegexPath(pathValue)
+				pathType = "RegularExpression"
+				bundle.Findings = append(bundle.Findings, ir.AuditFinding{
+					Key:         "gateshift.io/nginx-quirk/preserve-regex",
+					Value:       pathValue,
+					Status:      ir.StatusDirect,
+					Level:       1,
+					Target:      "HTTPRoute.spec.rules[].matches[].path",
+					Message:     "Emitted case-insensitive prefix RegularExpression to approximate Ingress-NGINX regex semantics",
+					IngressName: ing.Name,
+					Namespace:   ns,
+				})
+			}
+
+			// Optional trailing-slash 301 preservation.
+			if opts.EmitTrailingSlashRedirects {
+				if without, with, ok := nginxquirks.TrailingSlashRedirect(path.Path, path.PathType); ok {
+					code := 301
+					route.Rules = append(route.Rules, ir.HTTPRouteRuleIR{
+						Matches: []ir.HTTPMatchIR{{PathType: "Exact", PathValue: without}},
+						Filters: []ir.FilterIR{{
+							Kind:               ir.FilterRequestRedirect,
+							RedirectStatusCode: &code,
+							RedirectPath:       strPtrLocal(with),
+							RedirectPathType:   "ReplaceFullPath",
+						}},
+					})
+					bundle.Findings = append(bundle.Findings, ir.AuditFinding{
+						Key:         "gateshift.io/nginx-quirk/trailing-slash-emit",
+						Value:       without + "→" + with,
+						Status:      ir.StatusDirect,
+						Level:       1,
+						Target:      "HTTPRoute RequestRedirect",
+						Message:     "Emitted 301 trailing-slash redirect to preserve Ingress-NGINX behavior",
+						IngressName: ing.Name,
+						Namespace:   ns,
+					})
+				}
+			}
+
 			be := path.Backend
 			route.Rules = append(route.Rules, ruleFromBackend(&be, pathValue, pathType, routeFilters))
 		}
@@ -203,6 +254,8 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 	bundle.HTTPRoutes = append(bundle.HTTPRoutes, route)
 	return bundle, nil
 }
+
+func strPtrLocal(s string) *string { return &s }
 
 func isTruthyAnnotation(v string) bool {
 	switch strings.ToLower(strings.TrimSpace(v)) {

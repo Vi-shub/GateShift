@@ -24,6 +24,7 @@ GateShift’s north star: migrate large Ingress fleets to Gateway API with **exp
 - [x] One-line install script (`scripts/install.sh`)
 - [x] Public corpus + multi-provider `gateshift scoreboard` (Envoy / Cilium / Istio / Kong / standard)
 - [x] Compare doc + committed scoreboard snapshot
+- [x] Ingress-NGINX behavioral quirk detection (regex host-wide, rewrite-implies-regex, trailing-slash, URL normalization) + `--preserve-nginx-regex` / `--emit-trailing-slash-redirects`
 - [ ] Signed containers for `gateshift-operator`
 - [ ] Helm chart values docs + install NOTES
 - [ ] `--http-only` / TLS secret awareness in convert for lab clusters

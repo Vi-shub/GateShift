@@ -1,0 +1,22 @@
+# From: https://kubernetes.io/blog/2026/02/27/ingress-nginx-before-you-migrate/
+# Quirk #1: use-regex paths are prefix + case-insensitive in Ingress-NGINX.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: regex-match-ingress
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: regex-match.example.com
+      http:
+        paths:
+          - path: "/[A-Z]{3}"
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: httpbin
+                port:
+                  number: 8000

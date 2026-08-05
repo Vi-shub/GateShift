@@ -1,0 +1,40 @@
+# Quirk #2: use-regex applies to all paths of a host across Ingresses.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: regex-match-ingress
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: regex-match.example.com
+      http:
+        paths:
+          - path: "/[A-Z]{3}"
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: other
+                port:
+                  number: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: regex-match-ingress-other
+  namespace: demo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: regex-match.example.com
+      http:
+        paths:
+          - path: "/Header"
+            pathType: Exact
+            backend:
+              service:
+                name: httpbin
+                port:
+                  number: 8000

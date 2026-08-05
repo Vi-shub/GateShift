@@ -13,17 +13,19 @@ import (
 
 func newConvertCmd() *cobra.Command {
 	var (
-		file    string
-		output  string
-		target  string
-		gwClass string
-		gwName  string
-		noGW    bool
+		file               string
+		output             string
+		target             string
+		gwClass            string
+		gwName             string
+		noGW               bool
+		preserveRegex      bool
+		trailingSlashRedir bool
 	)
 	cmd := &cobra.Command{
 		Use:   "convert",
 		Short: "Convert Ingress YAML to Gateway API manifests",
-		Long:  "Translates Ingress resources into Gateway, HTTPRoute, and provider policy YAML.",
+		Long:  "Translates Ingress resources into Gateway, HTTPRoute, and provider policy YAML. Use --preserve-nginx-regex / --emit-trailing-slash-redirects for Ingress-NGINX behavioral fidelity.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if file == "" {
 				return exitErr(fmt.Errorf("--file is required"))
@@ -37,10 +39,12 @@ func newConvertCmd() *cobra.Command {
 				return exitErr(err)
 			}
 			opts := convert.Options{
-				Provider:       provider,
-				GatewayClass:   gwClass,
-				GatewayName:    gwName,
-				IncludeGateway: !noGW,
+				Provider:                   provider,
+				GatewayClass:               gwClass,
+				GatewayName:                gwName,
+				IncludeGateway:             !noGW,
+				PreserveNGINXRegex:         preserveRegex,
+				EmitTrailingSlashRedirects: trailingSlashRedir,
 			}
 			combined, err := convert.FromIngresses(ingresses, opts)
 			if err != nil {
@@ -67,5 +71,7 @@ func newConvertCmd() *cobra.Command {
 	cmd.Flags().StringVar(&gwClass, "gateway-class", "envoy", "GatewayClass name for generated Gateways")
 	cmd.Flags().StringVar(&gwName, "gateway-name", "", "Override generated Gateway name")
 	cmd.Flags().BoolVar(&noGW, "no-gateway", false, "Emit HTTPRoute/policies only (attach to an existing Gateway)")
+	cmd.Flags().BoolVar(&preserveRegex, "preserve-nginx-regex", false, "Emit case-insensitive prefix RegularExpression matches for Ingress-NGINX regex-forced hosts")
+	cmd.Flags().BoolVar(&trailingSlashRedir, "emit-trailing-slash-redirects", false, "Emit 301 redirects for /path → /path/ (Ingress-NGINX trailing-slash behavior)")
 	return cmd
 }

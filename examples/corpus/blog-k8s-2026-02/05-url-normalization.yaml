@@ -1,0 +1,19 @@
+# Quirk #5: Ingress-NGINX normalizes '.', '..', '//' before match.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: path-normalization-ingress
+  namespace: demo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: path-normalization.example.com
+      http:
+        paths:
+          - path: "/uuid"
+            pathType: Exact
+            backend:
+              service:
+                name: httpbin
+                port:
+                  number: 8000

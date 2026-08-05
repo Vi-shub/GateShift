@@ -1,0 +1,19 @@
+# Quirk #4: missing trailing slash is 301-redirected to path with slash.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trailing-slash-ingress
+  namespace: demo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: trailing-slash.example.com
+      http:
+        paths:
+          - path: "/my-path/"
+            pathType: Exact
+            backend:
+              service:
+                name: httpbin
+                port:
+                  number: 8000

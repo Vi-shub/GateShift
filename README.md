@@ -108,6 +108,12 @@ gateshift coverage -f examples/ingress-checkout.yaml
 
 # Multi-provider corpus scoreboard (Envoy, Cilium, Istio, Kong, standard)
 gateshift scoreboard -f examples/corpus -o docs/scoreboard.md
+
+# Preserve Ingress-NGINX behavioral quirks when needed
+gateshift convert -f examples/corpus/blog-k8s-2026-02/02-regex-host-wide.yaml \
+  --target=envoy-gateway --preserve-nginx-regex -o gateway.yaml
+gateshift convert -f examples/corpus/blog-k8s-2026-02/04-trailing-slash.yaml \
+  --target=envoy-gateway --emit-trailing-slash-redirects -o gateway.yaml
 ```
 
 Live cluster:
@@ -234,6 +240,7 @@ Logo/                      Project brand asset
 | [docs/SCOREBOARD.md](docs/SCOREBOARD.md) | How to read the corpus scoreboard |
 | [docs/scoreboard.md](docs/scoreboard.md) | Generated corpus scoreboard snapshot |
 | [docs/CORPUS_GAPS.md](docs/CORPUS_GAPS.md) | Uncatalogued annotation candidates from corpus |
+| [docs/BEHAVIORAL_FIDELITY.md](docs/BEHAVIORAL_FIDELITY.md) | Ingress-NGINX quirk detection + preserve flags |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline, adapter model, cutover strategy |
 | [docs/ANNOTATION_FIDELITY.md](docs/ANNOTATION_FIDELITY.md) | Classification model and coverage loop |
 | [docs/TESTING.md](docs/TESTING.md) | Unit, CLI, CI, and KinD smoke testing |

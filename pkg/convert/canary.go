@@ -8,6 +8,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 
 	"github.com/gateshift/gateshift/pkg/ir"
+	"github.com/gateshift/gateshift/pkg/nginxquirks"
 )
 
 const (
@@ -18,49 +19,62 @@ const (
 )
 
 // FromIngresses converts one or more Ingress objects, merging NGINX canary pairs
-// into a single weighted HTTPRoute.
+// into a single weighted HTTPRoute, and attaches Ingress-NGINX behavioral quirk findings.
 func FromIngresses(ingresses []*networkingv1.Ingress, opts Options) (*ir.MigrationBundle, error) {
 	if len(ingresses) == 0 {
 		return nil, fmt.Errorf("no ingresses provided")
 	}
-	primary, canaries := splitCanaries(ingresses)
-	if len(canaries) == 0 {
-		// No canary pairing — convert independently and merge bundles under one Gateway if requested.
-		return mergeBundles(ingresses, opts)
+	quirks := nginxquirks.Analyze(ingresses)
+	opts.quirkHostRegex = map[string]bool{}
+	for host, mode := range quirks.HostModes {
+		if mode.UseRegex || mode.RewriteImplies {
+			opts.quirkHostRegex[host] = true
+		}
 	}
 
-	// Convert primary first.
-	baseOpts := opts
-	if baseOpts.GatewayName == "" {
-		baseOpts.GatewayName = primary.Name + "-gateway"
+	primary, canaries := splitCanaries(ingresses)
+	var bundle *ir.MigrationBundle
+	var err error
+	if len(canaries) == 0 {
+		bundle, err = mergeBundles(ingresses, opts)
+	} else {
+		// Convert primary first.
+		baseOpts := opts
+		if baseOpts.GatewayName == "" {
+			baseOpts.GatewayName = primary.Name + "-gateway"
+		}
+		bundle, err = FromIngress(primary, baseOpts)
+		if err != nil {
+			return nil, err
+		}
+
+		// Attach canary backends onto matching rules (same host+path) with weights.
+		for _, c := range canaries {
+			weight := 0
+			if v := c.Annotations[annCanaryWeight]; v != "" {
+				if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+					weight = n
+				}
+			}
+			header := c.Annotations[annCanaryHeader]
+			headerValue := c.Annotations[annCanaryHeaderValue]
+			applyCanary(bundle, primary, c, weight, header, headerValue)
+			bundle.Findings = append(bundle.Findings, ir.AuditFinding{
+				Key:         annCanary,
+				Value:       fmt.Sprintf("weight=%d", weight),
+				Status:      ir.StatusRequiresPolicy,
+				Level:       2,
+				Target:      "HTTPRoute.spec.rules[].backendRefs.weight",
+				Message:     fmt.Sprintf("Merged canary Ingress %s into primary %s", c.Name, primary.Name),
+				IngressName: primary.Name,
+				Namespace:   primary.Namespace,
+			})
+		}
 	}
-	bundle, err := FromIngress(primary, baseOpts)
 	if err != nil {
 		return nil, err
 	}
-
-	// Attach canary backends onto matching rules (same host+path) with weights.
-	for _, c := range canaries {
-		weight := 0
-		if v := c.Annotations[annCanaryWeight]; v != "" {
-			if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-				weight = n
-			}
-		}
-		header := c.Annotations[annCanaryHeader]
-		headerValue := c.Annotations[annCanaryHeaderValue]
-		applyCanary(bundle, primary, c, weight, header, headerValue)
-		bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-			Key:         annCanary,
-			Value:       fmt.Sprintf("weight=%d", weight),
-			Status:      ir.StatusRequiresPolicy,
-			Level:       2,
-			Target:      "HTTPRoute.spec.rules[].backendRefs.weight",
-			Message:     fmt.Sprintf("Merged canary Ingress %s into primary %s", c.Name, primary.Name),
-			IngressName: primary.Name,
-			Namespace:   primary.Namespace,
-		})
-	}
+	bundle.Findings = append(bundle.Findings, quirks.Findings...)
 	return bundle, nil
 }
 

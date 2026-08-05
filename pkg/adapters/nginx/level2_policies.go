@@ -360,7 +360,7 @@ func (RegexAdapter) Transform(key, value string, ctx *adapters.Context) error {
 	if key == AnnUseRegex && isTruthy(value) {
 		ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
 			"HTTPRoute path type=RegularExpression",
-			"Regex paths are Gateway API Extended — validate controller support")
+			"Regex paths are Gateway API Extended. Ingress-NGINX also applies case-insensitive prefix matching host-wide — see gateshift.io/nginx-quirk/* findings and --preserve-nginx-regex")
 		return nil
 	}
 	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,

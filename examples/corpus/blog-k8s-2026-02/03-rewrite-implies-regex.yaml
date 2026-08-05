@@ -1,0 +1,40 @@
+# Quirk #3: rewrite-target silently implies use-regex for the host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rewrite-target-ingress
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: "/uuid"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: rewrite-target.example.com
+      http:
+        paths:
+          - path: "/IP"
+            pathType: Exact
+            backend:
+              service:
+                name: httpbin
+                port:
+                  number: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rewrite-target-ingress-other
+  namespace: demo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: rewrite-target.example.com
+      http:
+        paths:
+          - path: "/Header"
+            pathType: Exact
+            backend:
+              service:
+                name: httpbin
+                port:
+                  number: 8000

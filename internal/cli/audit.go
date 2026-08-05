@@ -28,7 +28,7 @@ func newAuditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "audit",
 		Short: "Audit Ingress manifests for Gateway API migratability",
-		Long:  "Scans local Ingress YAML or live cluster Ingresses and prints an L1/L2/L3 audit matrix.",
+		Long:  "Scans local Ingress YAML or live cluster Ingresses and prints an L1/L2/L3 audit matrix, including Ingress-NGINX behavioral quirk warnings (regex host-wide side effects, trailing-slash redirects, URL normalization).",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			provider, err := ir.ParseProvider(target)
 			if err != nil {
