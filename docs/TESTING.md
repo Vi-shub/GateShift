@@ -7,6 +7,8 @@ This document describes how to verify GateShift locally and on a KinD cluster.
 | Layer | Command / tool | Pass criteria |
 |-------|----------------|---------------|
 | Unit | `make test` / `go test ./...` | All packages green |
+| IR goldens / invariants | `go test ./pkg/convert/ -update-goldens` | Stable `gateshift.ir/v1` JSON |
+| Fuzz middle layer | `go test ./pkg/convert/ -fuzz=FuzzFromIngresses -fuzztime=30s` | No panic; schema + finding IDs |
 | Offline CLI | `audit` / `convert` / `validate` / `coverage` | Expected L1/L2/L3 outcomes |
 | Corpus scoreboard | `make scoreboard` / `gateshift scoreboard` | All providers scored; unreported annotations = 0 |
 | Conformance gate | `validate` on snippet fixtures | Must **FAIL** on hard L3 |

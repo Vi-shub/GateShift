@@ -37,7 +37,6 @@ func Analyze(ingresses []*networkingv1.Ingress) Result {
 		return res
 	}
 
-	// Pass 1: which hosts are forced into regex mode.
 	for _, ing := range ingresses {
 		if ing == nil {
 			continue
@@ -61,7 +60,6 @@ func Analyze(ingresses []*networkingv1.Ingress) Result {
 		}
 	}
 
-	// Pass 2: host-level + path-level findings.
 	seenHostFinding := map[string]bool{}
 	trailingNoted := map[string]bool{}
 	pathAsRegexNoted := map[string]bool{}
@@ -79,22 +77,19 @@ func Analyze(ingresses []*networkingv1.Ingress) Result {
 			if seenHostFinding[host] {
 				continue
 			}
-			// Only emit once per host, attributed to first forcing ingress if possible.
 			attr := mode.ForcingIngresses[0]
 			if attr == "" {
 				attr = ing.Name
 			}
 			seenHostFinding[host] = true
-			res.Findings = append(res.Findings, ir.AuditFinding{
-				Key:         "gateshift.io/nginx-quirk/host-regex",
-				Value:       host,
-				Status:      ir.StatusRequiresPolicy,
-				Level:       2,
-				Target:      "HTTPRoute path RegularExpression fidelity",
-				Message:     buildHostRegexMessage(mode),
-				IngressName: attr,
-				Namespace:   ns,
-			})
+			res.Findings = append(res.Findings,
+				ir.NewFinding(ir.FindingIDQuirkHostRegex, ir.StatusRequiresPolicy, 2,
+					"gateshift.io/nginx-quirk/host-regex", buildHostRegexMessage(mode)).
+					WithValue(host).
+					WithTarget("HTTPRoute path RegularExpression fidelity").
+					WithEvidence(ir.Evidence{IngressName: attr, Namespace: ns, Host: host}).
+					WithFix("--preserve-nginx-regex"),
+			)
 		}
 
 		for _, rule := range ing.Spec.Rules {
@@ -105,7 +100,6 @@ func Analyze(ingresses []*networkingv1.Ingress) Result {
 			if rule.HTTP == nil {
 				continue
 			}
-
 			forced := res.HostForcesRegex(host)
 			for _, p := range rule.HTTP.Paths {
 				path := p.Path
@@ -121,58 +115,51 @@ func Analyze(ingresses []*networkingv1.Ingress) Result {
 					pkey := ing.Name + "|" + host + "|" + string(pt) + "|" + path
 					if !pathAsRegexNoted[pkey] {
 						pathAsRegexNoted[pkey] = true
-						res.Findings = append(res.Findings, ir.AuditFinding{
-							Key:         "gateshift.io/nginx-quirk/path-as-regex",
-							Value:       fmt.Sprintf("%s %s", pt, path),
-							Status:      ir.StatusRequiresPolicy,
-							Level:       2,
-							Target:      "HTTPRoute.spec.rules[].matches[].path",
-							Message:     fmt.Sprintf("On host %q, Ingress-NGINX treats this %s path as a case-insensitive prefix regex because regex mode is forced for the host. Naïve Exact/Prefix Gateway conversion may 404. Use --preserve-nginx-regex or fix path typos.", host, pt),
-							IngressName: ing.Name,
-							Namespace:   ns,
-						})
+						res.Findings = append(res.Findings,
+							ir.NewFinding(ir.FindingIDQuirkPathAsRegex, ir.StatusRequiresPolicy, 2,
+								"gateshift.io/nginx-quirk/path-as-regex",
+								fmt.Sprintf("On host %q, Ingress-NGINX treats this %s path as a case-insensitive prefix regex because regex mode is forced for the host. Naïve Exact/Prefix Gateway conversion may 404.", host, pt)).
+								WithValue(fmt.Sprintf("%s %s", pt, path)).
+								WithTarget("HTTPRoute.spec.rules[].matches[].path").
+								WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns, Host: host, Path: path}).
+								WithFix("--preserve-nginx-regex"),
+						)
 					}
 				}
 
-				// Trailing-slash 301 (not applied to regex path types in Ingress-NGINX).
 				if strings.HasSuffix(path, "/") && path != "/" &&
-					(pt == networkingv1.PathTypeExact || pt == networkingv1.PathTypePrefix) &&
-					!(forced && pt == networkingv1.PathTypeImplementationSpecific) {
+					(pt == networkingv1.PathTypeExact || pt == networkingv1.PathTypePrefix) {
 					key := ing.Name + "|" + host + "|" + path
 					if trailingNoted[key] {
 						continue
 					}
 					trailingNoted[key] = true
-					res.Findings = append(res.Findings, ir.AuditFinding{
-						Key:         "gateshift.io/nginx-quirk/trailing-slash",
-						Value:       path,
-						Status:      ir.StatusRequiresPolicy,
-						Level:       2,
-						Target:      "HTTPRoute RequestRedirect (optional)",
-						Message:     fmt.Sprintf("Ingress-NGINX redirects %s → %s with 301 when only a trailing slash differs. Gateway API does not. Use --emit-trailing-slash-redirects to preserve, or confirm clients always include the slash.", strings.TrimSuffix(path, "/"), path),
-						IngressName: ing.Name,
-						Namespace:   ns,
-					})
+					res.Findings = append(res.Findings,
+						ir.NewFinding(ir.FindingIDQuirkTrailingSlash, ir.StatusRequiresPolicy, 2,
+							"gateshift.io/nginx-quirk/trailing-slash",
+							fmt.Sprintf("Ingress-NGINX redirects %s → %s with 301 when only a trailing slash differs. Gateway API does not.", strings.TrimSuffix(path, "/"), path)).
+							WithValue(path).
+							WithTarget("HTTPRoute RequestRedirect (optional)").
+							WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns, Host: host, Path: path}).
+							WithFix("--emit-trailing-slash-redirects"),
+					)
 				}
 			}
 		}
 	}
 
-	// Blog #5 — informational.
 	ing := ingresses[0]
 	ns := ing.Namespace
 	if ns == "" {
 		ns = "default"
 	}
-	res.Findings = append(res.Findings, ir.AuditFinding{
-		Key:         "gateshift.io/nginx-quirk/url-normalization",
-		Status:      ir.StatusDirect,
-		Level:       1,
-		Target:      "Gateway implementation path normalization",
-		Message:     "Ingress-NGINX normalizes '.', '..', and '//' before match. Envoy Gateway / Istio / Kgateway typically normalize '.'/'..' by default — verify slash-collapse and trailing-slash interaction for your controller.",
-		IngressName: ing.Name,
-		Namespace:   ns,
-	})
+	res.Findings = append(res.Findings,
+		ir.NewFinding(ir.FindingIDQuirkURLNormalization, ir.StatusDirect, 1,
+			"gateshift.io/nginx-quirk/url-normalization",
+			"Ingress-NGINX normalizes '.', '..', and '//' before match. Envoy Gateway / Istio / Kgateway typically normalize '.'/'..' by default — verify slash-collapse and trailing-slash interaction for your controller.").
+			WithTarget("Gateway implementation path normalization").
+			WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns}),
+	)
 
 	return res
 }

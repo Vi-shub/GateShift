@@ -42,25 +42,34 @@ func ParseProvider(s string) (Provider, error) {
 }
 
 // AuditFinding records how a single annotation or feature was classified.
+// Prefer ID + Severity + Fix for CI and remediation; Key/Message remain human-facing.
 type AuditFinding struct {
-	Key         string `json:"key"`
-	Value       string `json:"value,omitempty"`
-	Status      Status `json:"status"`
-	Level       int    `json:"level,omitempty"` // 1=direct, 2=policy CRD, 3=untranslatable
-	Target      string `json:"target,omitempty"`
-	Message     string `json:"message"`
-	IngressName string `json:"ingressName,omitempty"`
-	Namespace   string `json:"namespace,omitempty"`
+	ID          string   `json:"id,omitempty"`
+	Key         string   `json:"key"`
+	Value       string   `json:"value,omitempty"`
+	Status      Status   `json:"status"`
+	Severity    Severity `json:"severity,omitempty"`
+	Level       int      `json:"level,omitempty"` // 1=direct, 2=policy CRD, 3=untranslatable
+	Target      string   `json:"target,omitempty"`
+	Message     string   `json:"message"`
+	Fixable     bool     `json:"fixable,omitempty"`
+	Fix         string   `json:"fix,omitempty"` // CLI flag or playbook id
+	Evidence    Evidence `json:"evidence,omitempty"`
+	IngressName string   `json:"ingressName,omitempty"`
+	Namespace   string   `json:"namespace,omitempty"`
 }
 
 // MigrationBundle is the IR produced from one or more Ingress resources.
+// Emitters must only read this struct; adapters/quirks/canary write it.
 type MigrationBundle struct {
-	SourceNamespace string          `json:"sourceNamespace"`
-	Gateways        []GatewayIR     `json:"gateways,omitempty"`
-	HTTPRoutes      []HTTPRouteIR   `json:"httpRoutes,omitempty"`
-	Policies        []PolicyIR      `json:"policies,omitempty"`
-	Certificates    []CertificateIR `json:"certificates,omitempty"`
-	Findings        []AuditFinding  `json:"findings,omitempty"`
+	SchemaVersion    string          `json:"schemaVersion,omitempty"`
+	SourceNamespace  string          `json:"sourceNamespace"`
+	Gateways         []GatewayIR     `json:"gateways,omitempty"`
+	HTTPRoutes       []HTTPRouteIR   `json:"httpRoutes,omitempty"`
+	Policies         []PolicyIR      `json:"policies,omitempty"`
+	Certificates     []CertificateIR `json:"certificates,omitempty"`
+	Findings         []AuditFinding  `json:"findings,omitempty"`
+	RequiredFeatures []Feature       `json:"requiredFeatures,omitempty"`
 }
 
 // GatewayIR is a provider-neutral Gateway description.

@@ -19,11 +19,16 @@ GateShift is a CLI migration tool (with an optional operator) focused on annotat
 | Capability | ingress2gateway | GateShift |
 |------------|:---------------:|:---------:|
 | Hosts / paths / backends / TLS secrets | Yes | Yes |
+| Typed middle-layer IR (`schemaVersion`, features, findings) | Internal i2gw IR | `gateshift.ir/v1` with IDs / fixes / evidence |
+| Ordered pipeline (host-index → adapters → quirks → canary → finalize) | Provider → emit | Explicit stages; emitters read IR only |
 | L1 native filters (rewrite, redirect, CORS headers) | Partial | Yes |
 | L2 provider Policies (rate limit, IP allow, timeouts, …) | Limited | Yes (richest on Envoy Gateway today) |
+| Behavioral NGINX quirks (regex host-force, trailing slash) | Limited | Findings + optional preserve/emit flags |
 | Snippet handling | Generally omitted | Pattern library; residual L3 reported |
 | Canary Ingress merge | Manual | Weighted HTTPRoute merge |
 | Unreported annotations | Possible | Every migration annotation produces a finding |
+| Validate from IR-declared features | Re-scan shapes | `RequiredFeatures` + finding severity |
+| IR goldens / property / fuzz | Limited | `pkg/convert` goldens + fuzz |
 | Readiness score | No | 0–100 + label |
 | Controller capability validate | No | `validate` profiles |
 | Corpus scoreboard | No | `gateshift scoreboard` |

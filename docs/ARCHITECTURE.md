@@ -47,13 +47,19 @@ Ingress YAML / live API
    pkg/loader | pkg/cluster
         │
         ▼
-   pkg/adapters (L1/L2/L3 plug-ins) ──► IR (pkg/ir)
+   ordered middle layer (pkg/convert + adapters + nginxquirks)
+        host-index → adapters → quirks/canary → FinalizeIR
         │
-        ├─► pkg/convert emitters ──► Gateway / HTTPRoute / Policy YAML
-        ├─► pkg/conformance      ──► controller capability matrix
-        ├─► pkg/audit + pkg/diff ──► human reports
+        ▼
+   IR MigrationBundle (gateshift.ir/v1)  ← single contract
+        │
+        ├─► emitters             ──► Gateway / HTTPRoute / Policy YAML
+        ├─► pkg/conformance      ──► RequiredFeatures + findings
+        ├─► pkg/audit + pkg/diff ──► human reports (id / fix / evidence)
         └─► pkg/gitops           ──► PR body + branch/commit (or dry-run)
 ```
+
+See [MIDDLE_LAYER.md](MIDDLE_LAYER.md) for the IR finding/feature contract.
 
 Two delivery modes share one engine:
 

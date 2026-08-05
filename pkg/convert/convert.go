@@ -35,8 +35,18 @@ type Options struct {
 	quirkHostRegex map[string]bool
 }
 
-// FromIngress converts a single Ingress into IR.
+// FromIngress converts a single Ingress into finalized IR.
 func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, error) {
+	bundle, err := fromIngressRaw(ing, opts)
+	if err != nil {
+		return nil, err
+	}
+	FinalizeIR(bundle)
+	return bundle, nil
+}
+
+// fromIngressRaw builds IR without FinalizeIR (used by the multi-Ingress pipeline).
+func fromIngressRaw(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, error) {
 	if ing == nil {
 		return nil, fmt.Errorf("ingress is nil")
 	}
@@ -64,14 +74,12 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 	}
 
 	// Always record core path/service translation as direct.
-	bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-		Key:         "spec.rules",
-		Status:      ir.StatusDirect,
-		Target:      "HTTPRoute.spec.rules",
-		Message:     "Ingress rules mapped to HTTPRoute matches and backendRefs",
-		IngressName: ing.Name,
-		Namespace:   ns,
-	})
+	bundle.Findings = append(bundle.Findings,
+		ir.NewFinding(ir.FindingIDSpecRules, ir.StatusDirect, 1, "spec.rules",
+			"Ingress rules mapped to HTTPRoute matches and backendRefs").
+			WithTarget("HTTPRoute.spec.rules").
+			WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns}),
+	)
 
 	hostnames := collectHostnames(ing)
 	if ann.SSLPassthrough && ann.TLS != nil {
@@ -139,28 +147,22 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 				case networkingv1.PathTypeImplementationSpecific:
 					if hostRegex {
 						pathType = "RegularExpression"
-						bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-							Key:         "pathType",
-							Value:       string(*path.PathType),
-							Status:      ir.StatusRequiresPolicy,
-							Level:       2,
-							Target:      "HTTPRoute.spec.rules[].matches[].path.type=RegularExpression",
-							Message:     "ImplementationSpecific + Ingress-NGINX regex mode → RegularExpression (Extended feature)",
-							IngressName: ing.Name,
-							Namespace:   ns,
-						})
+						bundle.Findings = append(bundle.Findings,
+							ir.NewFinding(ir.FindingIDPathTypeRegex, ir.StatusRequiresPolicy, 2, "pathType",
+								"ImplementationSpecific + Ingress-NGINX regex mode → RegularExpression (Extended feature)").
+								WithValue(string(*path.PathType)).
+								WithTarget("HTTPRoute.spec.rules[].matches[].path.type=RegularExpression").
+								WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns, Host: host, Path: pathValue}),
+						)
 					} else {
 						pathType = "PathPrefix"
-						bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-							Key:         "pathType",
-							Value:       string(*path.PathType),
-							Status:      ir.StatusRequiresPolicy,
-							Level:       2,
-							Target:      "HTTPRoute.spec.rules[].matches[].path.type",
-							Message:     "ImplementationSpecific pathType lowered to PathPrefix; verify regex intent manually",
-							IngressName: ing.Name,
-							Namespace:   ns,
-						})
+						bundle.Findings = append(bundle.Findings,
+							ir.NewFinding(ir.FindingIDPathTypeImplSpecific, ir.StatusRequiresPolicy, 2, "pathType",
+								"ImplementationSpecific pathType lowered to PathPrefix; verify regex intent manually").
+								WithValue(string(*path.PathType)).
+								WithTarget("HTTPRoute.spec.rules[].matches[].path.type").
+								WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns, Host: host, Path: pathValue}),
+						)
 					}
 				}
 			} else if hostRegex {
@@ -171,16 +173,15 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 			if opts.PreserveNGINXRegex && hostRegex {
 				pathValue = nginxquirks.PreserveRegexPath(pathValue)
 				pathType = "RegularExpression"
-				bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-					Key:         "gateshift.io/nginx-quirk/preserve-regex",
-					Value:       pathValue,
-					Status:      ir.StatusDirect,
-					Level:       1,
-					Target:      "HTTPRoute.spec.rules[].matches[].path",
-					Message:     "Emitted case-insensitive prefix RegularExpression to approximate Ingress-NGINX regex semantics",
-					IngressName: ing.Name,
-					Namespace:   ns,
-				})
+				bundle.Findings = append(bundle.Findings,
+					ir.NewFinding(ir.FindingIDQuirkPreserveRegex, ir.StatusDirect, 1,
+						"gateshift.io/nginx-quirk/preserve-regex",
+						"Emitted case-insensitive prefix RegularExpression to approximate Ingress-NGINX regex semantics").
+						WithValue(pathValue).
+						WithTarget("HTTPRoute.spec.rules[].matches[].path").
+						WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns, Host: host, Path: pathValue}).
+						WithFix("--preserve-nginx-regex"),
+				)
 			}
 
 			// Optional trailing-slash 301 preservation.
@@ -196,16 +197,15 @@ func FromIngress(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundle, 
 							RedirectPathType:   "ReplaceFullPath",
 						}},
 					})
-					bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-						Key:         "gateshift.io/nginx-quirk/trailing-slash-emit",
-						Value:       without + "→" + with,
-						Status:      ir.StatusDirect,
-						Level:       1,
-						Target:      "HTTPRoute RequestRedirect",
-						Message:     "Emitted 301 trailing-slash redirect to preserve Ingress-NGINX behavior",
-						IngressName: ing.Name,
-						Namespace:   ns,
-					})
+					bundle.Findings = append(bundle.Findings,
+						ir.NewFinding(ir.FindingIDQuirkTrailingSlashEmit, ir.StatusDirect, 1,
+							"gateshift.io/nginx-quirk/trailing-slash-emit",
+							"Emitted 301 trailing-slash redirect to preserve Ingress-NGINX behavior").
+							WithValue(without+"→"+with).
+							WithTarget("HTTPRoute RequestRedirect").
+							WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns, Host: host, Path: path.Path}).
+							WithFix("--emit-trailing-slash-redirects"),
+					)
 				}
 			}
 

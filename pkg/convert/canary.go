@@ -18,12 +18,13 @@ const (
 	annCanaryHeaderValue = "nginx.ingress.kubernetes.io/canary-by-header-value"
 )
 
-// FromIngresses converts one or more Ingress objects, merging NGINX canary pairs
-// into a single weighted HTTPRoute, and attaches Ingress-NGINX behavioral quirk findings.
+// FromIngresses runs the ordered middle-layer pipeline (see pipeline.go):
+// host-index/quirks → adapters/route build → canary merge → finalize IR.
 func FromIngresses(ingresses []*networkingv1.Ingress, opts Options) (*ir.MigrationBundle, error) {
 	if len(ingresses) == 0 {
 		return nil, fmt.Errorf("no ingresses provided")
 	}
+	// Stage 1: host-index + behavioral quirks (before per-Ingress convert).
 	quirks := nginxquirks.Analyze(ingresses)
 	opts.quirkHostRegex = map[string]bool{}
 	for host, mode := range quirks.HostModes {
@@ -32,23 +33,24 @@ func FromIngresses(ingresses []*networkingv1.Ingress, opts Options) (*ir.Migrati
 		}
 	}
 
+	// Stage 2: canary split.
 	primary, canaries := splitCanaries(ingresses)
 	var bundle *ir.MigrationBundle
 	var err error
 	if len(canaries) == 0 {
+		// Stages 3–4: adapters + route build for each Ingress.
 		bundle, err = mergeBundles(ingresses, opts)
 	} else {
-		// Convert primary first.
 		baseOpts := opts
 		if baseOpts.GatewayName == "" {
 			baseOpts.GatewayName = primary.Name + "-gateway"
 		}
-		bundle, err = FromIngress(primary, baseOpts)
+		bundle, err = fromIngressRaw(primary, baseOpts)
 		if err != nil {
 			return nil, err
 		}
 
-		// Attach canary backends onto matching rules (same host+path) with weights.
+		// Stage 5: canary merge.
 		for _, c := range canaries {
 			weight := 0
 			if v := c.Annotations[annCanaryWeight]; v != "" {
@@ -59,22 +61,26 @@ func FromIngresses(ingresses []*networkingv1.Ingress, opts Options) (*ir.Migrati
 			header := c.Annotations[annCanaryHeader]
 			headerValue := c.Annotations[annCanaryHeaderValue]
 			applyCanary(bundle, primary, c, weight, header, headerValue)
-			bundle.Findings = append(bundle.Findings, ir.AuditFinding{
-				Key:         annCanary,
-				Value:       fmt.Sprintf("weight=%d", weight),
-				Status:      ir.StatusRequiresPolicy,
-				Level:       2,
-				Target:      "HTTPRoute.spec.rules[].backendRefs.weight",
-				Message:     fmt.Sprintf("Merged canary Ingress %s into primary %s", c.Name, primary.Name),
-				IngressName: primary.Name,
-				Namespace:   primary.Namespace,
-			})
+			ns := primary.Namespace
+			if ns == "" {
+				ns = "default"
+			}
+			bundle.Findings = append(bundle.Findings,
+				ir.NewFinding(ir.FindingIDCanaryMerge, ir.StatusRequiresPolicy, 2, annCanary,
+					fmt.Sprintf("Merged canary Ingress %s into primary %s", c.Name, primary.Name)).
+					WithValue(fmt.Sprintf("weight=%d", weight)).
+					WithTarget("HTTPRoute.spec.rules[].backendRefs.weight").
+					WithEvidence(ir.Evidence{IngressName: primary.Name, Namespace: ns, Annotation: annCanary}),
+			)
 		}
 	}
 	if err != nil {
 		return nil, err
 	}
+	// Stage 6: attach quirk findings (preserve/emit findings come from route build).
 	bundle.Findings = append(bundle.Findings, quirks.Findings...)
+	// Stage 7: normalize + RequiredFeatures.
+	FinalizeIR(bundle)
 	return bundle, nil
 }
 
@@ -92,7 +98,7 @@ func mergeBundles(ingresses []*networkingv1.Ingress, opts Options) (*ir.Migratio
 		if sharedGW != "" {
 			o.GatewayName = sharedGW
 		}
-		b, err := FromIngress(ing, o)
+		b, err := fromIngressRaw(ing, o)
 		if err != nil {
 			return nil, err
 		}

@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "gateshift.ir/v1",
+  "sourceNamespace": "demo",
+  "gateways": [
+    {
+      "Name": "unk-gateway",
+      "Namespace": "demo",
+      "ClassName": "",
+      "Listeners": [
+        {
+          "Name": "http",
+          "Protocol": "HTTP",
+          "Port": 80,
+          "Hostname": "unk.example.com",
+          "TLS": null
+        }
+      ]
+    }
+  ],
+  "httpRoutes": [
+    {
+      "Name": "unk",
+      "Namespace": "demo",
+      "Hostnames": [
+        "unk.example.com"
+      ],
+      "ParentRefs": [
+        {
+          "Name": "unk-gateway",
+          "Namespace": "demo",
+          "Section": ""
+        }
+      ],
+      "Rules": [
+        {
+          "Matches": [
+            {
+              "PathType": "PathPrefix",
+              "PathValue": "/",
+              "Method": "",
+              "Headers": null
+            }
+          ],
+          "Filters": [],
+          "Backends": [
+            {
+              "Name": "web",
+              "Namespace": "",
+              "Port": 80,
+              "Weight": null
+            }
+          ]
+        }
+      ],
+      "Annotations": {
+        "gateshift.io/source-ingress": "unk"
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "annotation.unknown",
+      "key": "nginx.ingress.kubernetes.io/totally-unknown-future-key",
+      "value": "1",
+      "status": "requires_policy",
+      "severity": "warn",
+      "level": 2,
+      "target": "catalog / new adapter",
+      "message": "Unknown or unhandled migration annotation nginx.ingress.kubernetes.io/totally-unknown-future-key — recorded for coverage; not silently dropped",
+      "evidence": {
+        "ingressName": "unk",
+        "namespace": "demo",
+        "annotation": "nginx.ingress.kubernetes.io/totally-unknown-future-key"
+      },
+      "ingressName": "unk",
+      "namespace": "demo"
+    },
+    {
+      "id": "quirk.url-normalization",
+      "key": "gateshift.io/nginx-quirk/url-normalization",
+      "status": "direct",
+      "severity": "info",
+      "level": 1,
+      "target": "Gateway implementation path normalization",
+      "message": "Ingress-NGINX normalizes '.', '..', and '//' before match. Envoy Gateway / Istio / Kgateway typically normalize '.'/'..' by default — verify slash-collapse and trailing-slash interaction for your controller.",
+      "evidence": {
+        "ingressName": "unk",
+        "namespace": "demo"
+      },
+      "ingressName": "unk",
+      "namespace": "demo"
+    },
+    {
+      "id": "route.spec-rules",
+      "key": "spec.rules",
+      "status": "direct",
+      "severity": "info",
+      "level": 1,
+      "target": "HTTPRoute.spec.rules",
+      "message": "Ingress rules mapped to HTTPRoute matches and backendRefs",
+      "evidence": {
+        "ingressName": "unk",
+        "namespace": "demo",
+        "annotation": "spec.rules"
+      },
+      "ingressName": "unk",
+      "namespace": "demo"
+    }
+  ],
+  "requiredFeatures": [
+    "HTTPRoute"
+  ]
+}

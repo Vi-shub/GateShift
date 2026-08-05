@@ -119,7 +119,8 @@ func ValidateBundle(bundle *ir.MigrationBundle, provider ir.Provider) Result {
 	}
 	res := Result{Provider: provider, Profile: profile, OK: true}
 
-	used := detectFeatures(bundle)
+	// Prefer IR-declared RequiredFeatures (gateshift.ir/v1); fall back to scan.
+	used := featuresFromIR(bundle)
 	for feat := range used {
 		if profile.Supported[feat] {
 			continue
@@ -136,25 +137,73 @@ func ValidateBundle(bundle *ir.MigrationBundle, provider ir.Provider) Result {
 		}
 	}
 
-	// Untranslatable findings always warn.
 	for _, f := range bundle.Findings {
-		if f.Status == ir.StatusUntranslatable {
+		if f.Status == ir.StatusUntranslatable || f.Severity == ir.SeverityBlock {
+			msg := f.Message
+			if f.ID != "" {
+				msg = f.ID + ": " + msg
+			}
+			if f.Fixable && f.Fix != "" {
+				msg = msg + " (fix: " + f.Fix + ")"
+			}
 			res.Issues = append(res.Issues, Issue{
 				Feature:  Feature("Annotation:" + f.Key),
 				Severity: "error",
-				Message:  f.Message,
+				Message:  msg,
 			})
 			res.OK = false
 		}
 		if f.Status == ir.StatusRequiresPolicy {
+			msg := "Requires provider Policy CRD — ensure " + string(provider) + " CRDs are installed"
+			if f.ID == ir.FindingIDAnnotationUnknown {
+				msg = "Unknown annotation recorded in IR — add an adapter or accept as out-of-scope"
+			}
+			if f.Fixable && f.Fix != "" {
+				msg = msg + " (fix: " + f.Fix + ")"
+			}
 			res.Issues = append(res.Issues, Issue{
 				Feature:  Feature("Policy:" + f.Key),
 				Severity: "warn",
-				Message:  "Requires provider Policy CRD — ensure " + string(provider) + " CRDs are installed",
+				Message:  msg,
 			})
 		}
 	}
 	return res
+}
+
+// featuresFromIR maps IR RequiredFeatures onto the conformance matrix.
+func featuresFromIR(bundle *ir.MigrationBundle) map[Feature]bool {
+	if bundle == nil {
+		return map[Feature]bool{FeatureHTTPRoute: true}
+	}
+	if len(bundle.RequiredFeatures) == 0 {
+		return detectFeatures(bundle)
+	}
+	used := map[Feature]bool{}
+	for _, f := range bundle.RequiredFeatures {
+		switch f {
+		case ir.FeatureHTTPRoute:
+			used[FeatureHTTPRoute] = true
+		case ir.FeatureURLRewrite:
+			used[FeatureURLRewrite] = true
+		case ir.FeatureRequestRedirect:
+			used[FeatureRequestRedirect] = true
+		case ir.FeatureHeaderModifier:
+			used[FeatureResponseHeaderModifier] = true
+		case ir.FeatureRegexPath:
+			used[FeatureRegexPath] = true
+		case ir.FeatureSessionPersistence:
+			used[FeatureSessionPersistence] = true
+		case ir.FeatureBackendTLS:
+			used[FeatureBackendTLS] = true
+		case ir.FeatureProviderPolicy:
+			// Covered by finding StatusRequiresPolicy warnings, not feature matrix.
+		}
+	}
+	if len(used) == 0 {
+		used[FeatureHTTPRoute] = true
+	}
+	return used
 }
 
 func detectFeatures(bundle *ir.MigrationBundle) map[Feature]bool {

@@ -70,19 +70,32 @@ func (c *Context) Claim(keys ...string) {
 	}
 }
 
-// AddFinding appends a classified audit finding.
+// AddFinding appends a classified audit finding with a stable ID.
 func (c *Context) AddFinding(key, value string, status ir.Status, level Level, target, msg string) {
 	c.Claim(key)
-	c.Findings = append(c.Findings, ir.AuditFinding{
-		Key:         key,
-		Value:       value,
-		Status:      status,
-		Level:       int(level),
-		Target:      target,
-		Message:     msg,
-		IngressName: c.Meta.IngressName,
-		Namespace:   c.Meta.Namespace,
-	})
+	f := ir.NewFinding("annotation."+sanitizeID(key), status, int(level), key, msg).
+		WithValue(value).
+		WithTarget(target).
+		WithEvidence(ir.Evidence{
+			IngressName: c.Meta.IngressName,
+			Namespace:   c.Meta.Namespace,
+			Annotation:  key,
+		})
+	c.Findings = append(c.Findings, f)
+}
+
+func sanitizeID(key string) string {
+	b := make([]byte, 0, len(key))
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+			b = append(b, c)
+		default:
+			b = append(b, '.')
+		}
+	}
+	return string(b)
 }
 
 // AnnotationAdapter is a plug-in that handles one annotation family.
@@ -142,8 +155,19 @@ func (r *Registry) Translate(annotations map[string]string, provider ir.Provider
 			break
 		}
 		if !matched && isMigrationAnnotation(key) {
-			ctx.AddFinding(key, value, ir.StatusUntranslatable, Level3, "",
-				fmt.Sprintf("Annotation %s has no registered GateShift adapter", key))
+			// Unknown / unhandled annotations become IR findings (never silent).
+			// Warn-level so validate fail-closed is reserved for true L3 (snippets, etc.).
+			f := ir.NewFinding(ir.FindingIDAnnotationUnknown, ir.StatusRequiresPolicy, 2, key,
+				fmt.Sprintf("Unknown or unhandled migration annotation %s — recorded for coverage; not silently dropped", key)).
+				WithValue(value).
+				WithTarget("catalog / new adapter").
+				WithEvidence(ir.Evidence{
+					IngressName: meta.IngressName,
+					Namespace:   meta.Namespace,
+					Annotation:  key,
+				})
+			ctx.Findings = append(ctx.Findings, f)
+			ctx.Claim(key)
 		}
 	}
 	return ctx

@@ -15,18 +15,30 @@ func WriteMatrix(w io.Writer, bundle *ir.MigrationBundle) {
 	direct, policy, blocked := bundle.Summary()
 	fmt.Fprintf(w, "GateShift Audit Matrix\n")
 	fmt.Fprintf(w, "======================\n")
+	if bundle.SchemaVersion != "" {
+		fmt.Fprintf(w, "IR: %s\n", bundle.SchemaVersion)
+	}
+	if len(bundle.RequiredFeatures) > 0 {
+		feats := make([]string, len(bundle.RequiredFeatures))
+		for i, f := range bundle.RequiredFeatures {
+			feats[i] = string(f)
+		}
+		fmt.Fprintf(w, "Required features: %s\n", strings.Join(feats, ", "))
+	}
 	fmt.Fprintf(w, "Readiness: %d/100 (%s)\n", bundle.ReadinessScore(), bundle.ReadinessLabel())
 	fmt.Fprintf(w, "Summary: %d L1 direct | %d L2 policy | %d L3 manual\n\n", direct, policy, blocked)
 
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "LVL\tSTATUS\tINGRESS\tANNOTATION / FEATURE\tTARGET\tNOTES")
-	fmt.Fprintln(tw, "---\t------\t-------\t--------------------\t------\t-----")
+	fmt.Fprintln(tw, "LVL\tSTATUS\tID\tINGRESS\tANNOTATION / FEATURE\tFIX\tTARGET\tNOTES")
+	fmt.Fprintln(tw, "---\t------\t--\t-------\t--------------------\t---\t------\t-----")
 	for _, f := range bundle.Findings {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			levelLabel(f.Level, f.Status),
 			statusLabel(f.Status),
+			display(f.ID),
 			display(f.IngressName),
 			feature(f),
+			display(f.Fix),
 			display(f.Target),
 			sanitize(f.Message),
 		)
@@ -35,8 +47,9 @@ func WriteMatrix(w io.Writer, bundle *ir.MigrationBundle) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Legend:")
 	fmt.Fprintln(w, "  L1 [OK]   Direct Gateway API HTTPRoute filter mapping")
-	fmt.Fprintln(w, "  L2 [POL]  Requires provider Policy / Certificate CRD")
+	fmt.Fprintln(w, "  L2 [POL]  Requires provider Policy / Certificate CRD (or unknown annotation)")
 	fmt.Fprintln(w, "  L3 [MAN]  Untranslatable nginx magic — manual rewrite required")
+	fmt.Fprintln(w, "  FIX       CLI flag or playbook that remediates the finding")
 }
 
 func levelLabel(level int, status ir.Status) string {

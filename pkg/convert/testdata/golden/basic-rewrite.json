@@ -1,0 +1,221 @@
+{
+  "schemaVersion": "gateshift.ir/v1",
+  "sourceNamespace": "demo",
+  "gateways": [
+    {
+      "Name": "web-gateway",
+      "Namespace": "demo",
+      "ClassName": "envoy",
+      "Listeners": [
+        {
+          "Name": "http",
+          "Protocol": "HTTP",
+          "Port": 80,
+          "Hostname": "web.example.com",
+          "TLS": null
+        }
+      ]
+    }
+  ],
+  "httpRoutes": [
+    {
+      "Name": "web",
+      "Namespace": "demo",
+      "Hostnames": [
+        "web.example.com"
+      ],
+      "ParentRefs": [
+        {
+          "Name": "web-gateway",
+          "Namespace": "demo",
+          "Section": ""
+        }
+      ],
+      "Rules": [
+        {
+          "Matches": [
+            {
+              "PathType": "PathPrefix",
+              "PathValue": "/",
+              "Method": "",
+              "Headers": null
+            }
+          ],
+          "Filters": [
+            {
+              "Kind": "RequestRedirect",
+              "ReplacePrefixMatch": null,
+              "ReplaceFullPath": null,
+              "Hostname": null,
+              "RedirectScheme": "https",
+              "RedirectHostname": null,
+              "RedirectPath": null,
+              "RedirectPort": null,
+              "RedirectStatusCode": 302,
+              "RedirectPathType": "",
+              "SetHeaders": null,
+              "AddHeaders": null,
+              "RemoveHeaders": null,
+              "ExtensionGroup": "",
+              "ExtensionKind": "",
+              "ExtensionName": ""
+            }
+          ],
+          "Backends": null
+        },
+        {
+          "Matches": [
+            {
+              "PathType": "PathPrefix",
+              "PathValue": "/",
+              "Method": "",
+              "Headers": null
+            }
+          ],
+          "Filters": [
+            {
+              "Kind": "URLRewrite",
+              "ReplacePrefixMatch": "/app",
+              "ReplaceFullPath": null,
+              "Hostname": null,
+              "RedirectScheme": null,
+              "RedirectHostname": null,
+              "RedirectPath": null,
+              "RedirectPort": null,
+              "RedirectStatusCode": null,
+              "RedirectPathType": "",
+              "SetHeaders": null,
+              "AddHeaders": null,
+              "RemoveHeaders": null,
+              "ExtensionGroup": "",
+              "ExtensionKind": "",
+              "ExtensionName": ""
+            }
+          ],
+          "Backends": [
+            {
+              "Name": "web",
+              "Namespace": "",
+              "Port": 80,
+              "Weight": null
+            }
+          ]
+        }
+      ],
+      "Annotations": {
+        "gateshift.io/source-ingress": "web"
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "annotation.nginx.ingress.kubernetes.io.rewrite.target",
+      "key": "nginx.ingress.kubernetes.io/rewrite-target",
+      "value": "/app",
+      "status": "direct",
+      "severity": "info",
+      "level": 1,
+      "target": "HTTPRoute.spec.rules[].filters[type=URLRewrite]",
+      "message": "Mapped rewrite-target to URLRewrite ReplacePrefixMatch",
+      "evidence": {
+        "ingressName": "web",
+        "namespace": "demo",
+        "annotation": "nginx.ingress.kubernetes.io/rewrite-target"
+      },
+      "ingressName": "web",
+      "namespace": "demo"
+    },
+    {
+      "id": "annotation.nginx.ingress.kubernetes.io.ssl.redirect",
+      "key": "nginx.ingress.kubernetes.io/ssl-redirect",
+      "value": "true",
+      "status": "direct",
+      "severity": "info",
+      "level": 1,
+      "target": "HTTPRoute.spec.rules[].filters[type=RequestRedirect]",
+      "message": "Mapped SSL redirect to HTTPS RequestRedirect",
+      "evidence": {
+        "ingressName": "web",
+        "namespace": "demo",
+        "annotation": "nginx.ingress.kubernetes.io/ssl-redirect"
+      },
+      "ingressName": "web",
+      "namespace": "demo"
+    },
+    {
+      "id": "quirk.host-regex",
+      "key": "gateshift.io/nginx-quirk/host-regex",
+      "value": "web.example.com",
+      "status": "requires_policy",
+      "severity": "warn",
+      "level": 2,
+      "target": "HTTPRoute path RegularExpression fidelity",
+      "message": "Ingress-NGINX forces case-insensitive prefix regex for host \"web.example.com\" (rewrite-target (implies regex)) across all Ingresses on that host (sources: web). Envoy-based Gateway controllers usually do full case-sensitive regex. Convert with --preserve-nginx-regex or consciously accept semantic change.",
+      "fixable": true,
+      "fix": "--preserve-nginx-regex",
+      "evidence": {
+        "ingressName": "web",
+        "namespace": "demo",
+        "host": "web.example.com"
+      },
+      "ingressName": "web",
+      "namespace": "demo"
+    },
+    {
+      "id": "quirk.path-as-regex",
+      "key": "gateshift.io/nginx-quirk/path-as-regex",
+      "value": "Prefix /",
+      "status": "requires_policy",
+      "severity": "warn",
+      "level": 2,
+      "target": "HTTPRoute.spec.rules[].matches[].path",
+      "message": "On host \"web.example.com\", Ingress-NGINX treats this Prefix path as a case-insensitive prefix regex because regex mode is forced for the host. Naïve Exact/Prefix Gateway conversion may 404.",
+      "fixable": true,
+      "fix": "--preserve-nginx-regex",
+      "evidence": {
+        "ingressName": "web",
+        "namespace": "demo",
+        "host": "web.example.com",
+        "path": "/"
+      },
+      "ingressName": "web",
+      "namespace": "demo"
+    },
+    {
+      "id": "quirk.url-normalization",
+      "key": "gateshift.io/nginx-quirk/url-normalization",
+      "status": "direct",
+      "severity": "info",
+      "level": 1,
+      "target": "Gateway implementation path normalization",
+      "message": "Ingress-NGINX normalizes '.', '..', and '//' before match. Envoy Gateway / Istio / Kgateway typically normalize '.'/'..' by default — verify slash-collapse and trailing-slash interaction for your controller.",
+      "evidence": {
+        "ingressName": "web",
+        "namespace": "demo"
+      },
+      "ingressName": "web",
+      "namespace": "demo"
+    },
+    {
+      "id": "route.spec-rules",
+      "key": "spec.rules",
+      "status": "direct",
+      "severity": "info",
+      "level": 1,
+      "target": "HTTPRoute.spec.rules",
+      "message": "Ingress rules mapped to HTTPRoute matches and backendRefs",
+      "evidence": {
+        "ingressName": "web",
+        "namespace": "demo",
+        "annotation": "spec.rules"
+      },
+      "ingressName": "web",
+      "namespace": "demo"
+    }
+  ],
+  "requiredFeatures": [
+    "HTTPRoute",
+    "HTTPRouteURLRewrite",
+    "HTTPRouteRequestRedirect"
+  ]
+}
