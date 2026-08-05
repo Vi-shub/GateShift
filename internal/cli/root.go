@@ -16,7 +16,7 @@ func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "gateshift",
 		Short:         "Migrate Kubernetes Ingress resources to Gateway API",
-		Long:          "GateShift converts legacy NGINX/in-cluster Ingress specs and annotations into Gateway API CRDs using a Level 1/2/3 plug-in adapter engine, pattern library, canary merge, and coverage scoring — built to beat silent annotation drops from baseline ingress2gateway.",
+		Long:          "GateShift converts Kubernetes Ingress resources and annotations into Gateway API manifests using a Level 1/2/3 adapter engine, pattern library, canary merge, readiness scoring, and multi-provider validation.",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
@@ -26,6 +26,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(newValidateCmd())
 	cmd.AddCommand(newMigrateCmd())
 	cmd.AddCommand(newCoverageCmd())
+	cmd.AddCommand(newScoreboardCmd())
 	cmd.AddCommand(newVersionCmd())
 	return cmd
 }

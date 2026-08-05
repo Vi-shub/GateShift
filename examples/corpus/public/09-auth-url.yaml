@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: authed
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "https://auth.example.com/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.example.com/oauth2/start"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: authed.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authed
+                port:
+                  number: 80

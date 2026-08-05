@@ -15,7 +15,7 @@ func newCoverageCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "coverage",
 		Short: "Show annotation catalog coverage (and optional file gap analysis)",
-		Long:  "Reports how much of GateShift's tracked NGINX annotation catalog is implemented, and optionally which keys in a file are still gaps vs ingress2gateway-class converters.",
+		Long:  "Reports how much of GateShift's tracked NGINX annotation catalog is implemented, and optionally which keys in a file are covered, missing, or unknown.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			stats := nginx.CatalogCoverage()
 			fmt.Fprintf(cmd.OutOrStdout(), "GateShift Annotation Catalog Coverage\n")

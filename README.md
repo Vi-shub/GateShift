@@ -16,10 +16,12 @@
 </p>
 
 <p align="center">
+  <a href="#install">Install</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#why-gateshift">Why GateShift</a> ·
+  <a href="#corpus-scoreboard">Scoreboard</a> ·
   <a href="#cli-reference">CLI</a> ·
-  <a href="#documentation">Docs</a> ·
+  <a href="docs/COMPARE.md">Comparison</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -41,23 +43,29 @@ Every feature is classified and reported:
 
 ## Why GateShift
 
-| Capability | Baseline `ingress2gateway` | GateShift |
-|------------|----------------------------|-----------|
-| Hosts / paths / backends | Yes | Yes |
-| Annotation fidelity | Often dropped | L1 / L2 / L3 matrix + readiness score |
-| Snippets | Ignored | Pattern library (promote safe idioms) |
-| Canary Ingress pairs | Manual | Weighted `HTTPRoute` merge |
-| Controller fit | Rarely checked | `validate` capability matrix |
-| GitOps | Manual | `migrate` PR / dry-run artifacts |
-| In-cluster | N/A | `MigrationRequest` operator |
+| Capability | GateShift |
+|------------|-----------|
+| Hosts / paths / backends | Yes |
+| Annotation fidelity | L1 / L2 / L3 matrix + readiness score |
+| Snippets | Pattern library (promote safe idioms); residual L3 reported |
+| Canary Ingress pairs | Weighted `HTTPRoute` merge |
+| Controller fit | `validate` capability matrix |
+| GitOps | `migrate` PR / dry-run artifacts |
+| In-cluster | Optional `MigrationRequest` operator |
 
-Design deep-dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · comparison: [docs/BEATING_INGRESS2GATEWAY.md](docs/BEATING_INGRESS2GATEWAY.md)
+Related-tool comparison + multi-provider scoreboard: [docs/COMPARE.md](docs/COMPARE.md) · design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
-## Install / build
+## Install
 
-Requirements: Go 1.22+, optional Docker + KinD for cluster tests.
+One-line (Linux / macOS, after the first GitHub Release):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gateshift/gateshift/main/scripts/install.sh | bash
+```
+
+Or build from source (Go 1.22+):
 
 ```bash
 git clone https://github.com/gateshift/gateshift.git
@@ -72,6 +80,8 @@ Cross-compile for WSL / Linux from Windows:
 ```powershell
 $env:GOOS="linux"; $env:GOARCH="amd64"; go build -o bin/gateshift ./cmd/gateshift
 ```
+
+Release binaries (linux / darwin / windows × amd64 / arm64) are published via GoReleaser on `v*` tags.
 
 ---
 
@@ -95,6 +105,9 @@ gateshift migrate -f examples/ingress-checkout.yaml --target=envoy-gateway
 
 # Annotation catalog / gap analysis
 gateshift coverage -f examples/ingress-checkout.yaml
+
+# Multi-provider corpus scoreboard (Envoy, Cilium, Istio, Kong, standard)
+gateshift scoreboard -f examples/corpus -o docs/scoreboard.md
 ```
 
 Live cluster:
@@ -109,6 +122,27 @@ gateshift audit --namespace shop --target=envoy-gateway
 
 ---
 
+## Corpus scoreboard
+
+GateShift ships a public Ingress corpus and a provider matrix so you can **prove** annotation fidelity instead of claiming it.
+
+```bash
+make scoreboard
+# → docs/scoreboard.md
+```
+
+| What it measures | Meaning |
+|------------------|---------|
+| Readiness 0–100 | Migration safety (`READY` / `READY_WITH_POLICIES` / `NEEDS_REVIEW` / `BLOCKED`) |
+| L1 / L2 / L3 | Direct filters · provider Policies · manual / snippets |
+| Validate | Controller capability gate per target |
+| Unreported | Always **0** — every migration annotation becomes a finding |
+| Structure-only baseline | Annotation keys a hosts/paths/TLS-only conversion would omit |
+
+Providers scored: **Envoy Gateway**, **Cilium**, **Istio**, **Kong**, and portable **standard**. See [docs/COMPARE.md](docs/COMPARE.md) and the latest [docs/scoreboard.md](docs/scoreboard.md).
+
+---
+
 ## CLI reference
 
 | Command | Purpose |
@@ -119,8 +153,8 @@ gateshift audit --namespace shop --target=envoy-gateway
 | `validate` | Provider capability / conformance gate |
 | `migrate` | Convert + GitHub PR or local dry-run pack |
 | `coverage` | Catalog coverage and per-key `[OK]` / `[GAP]` / `[??]` |
+| `scoreboard` | Corpus report across Envoy / Cilium / Istio / Kong / standard |
 | `version` | Print CLI version |
-
 ---
 
 ## Annotation coverage
@@ -177,13 +211,15 @@ pkg/convert/               Ingress → IR → YAML (+ canary merge)
 pkg/conformance/           Provider capability checks
 pkg/cluster/               Live Ingress listing
 pkg/gitops/                GitHub PR + dry-run artifacts
+pkg/scoreboard/            Multi-provider corpus scoring
 charts/gateshift-operator/ Helm chart
 config/crd/                CRD manifests
 examples/                  Sample Ingress + demos
-examples/corpus/           Regression fixtures
-scripts/                   KinD e2e / smoke / demo
-docs/                      Architecture, testing, roadmap
+examples/corpus/           Public + GitHub regression fixtures
+scripts/                   Install, KinD smoke / demo
+docs/                      Architecture, compare, scoreboard
 Logo/                      Project brand asset
+.github/workflows/         CI, KinD smoke, GoReleaser release
 ```
 
 ---
@@ -192,9 +228,11 @@ Logo/                      Project brand asset
 
 | Doc | Description |
 |-----|-------------|
+| [docs/COMPARE.md](docs/COMPARE.md) | Related tools + provider matrix |
+| [docs/scoreboard.md](docs/scoreboard.md) | Generated corpus scoreboard snapshot |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline, adapter model, cutover strategy |
-| [docs/TESTING.md](docs/TESTING.md) | Unit, CLI, and KinD smoke testing |
-| [docs/BEATING_INGRESS2GATEWAY.md](docs/BEATING_INGRESS2GATEWAY.md) | Differentiation and coverage strategy |
+| [docs/ANNOTATION_FIDELITY.md](docs/ANNOTATION_FIDELITY.md) | Classification model and coverage loop |
+| [docs/TESTING.md](docs/TESTING.md) | Unit, CLI, CI, and KinD smoke testing |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Near-term and longer-term work |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to extend adapters and patterns |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting |

@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	annCanary       = "nginx.ingress.kubernetes.io/canary"
-	annCanaryWeight = "nginx.ingress.kubernetes.io/canary-weight"
-	annCanaryHeader = "nginx.ingress.kubernetes.io/canary-by-header"
+	annCanary            = "nginx.ingress.kubernetes.io/canary"
+	annCanaryWeight      = "nginx.ingress.kubernetes.io/canary-weight"
+	annCanaryHeader      = "nginx.ingress.kubernetes.io/canary-by-header"
 	annCanaryHeaderValue = "nginx.ingress.kubernetes.io/canary-by-header-value"
 )
 
 // FromIngresses converts one or more Ingress objects, merging NGINX canary pairs
-// into a single weighted HTTPRoute — a major gap in baseline ingress2gateway.
+// into a single weighted HTTPRoute.
 func FromIngresses(ingresses []*networkingv1.Ingress, opts Options) (*ir.MigrationBundle, error) {
 	if len(ingresses) == 0 {
 		return nil, fmt.Errorf("no ingresses provided")

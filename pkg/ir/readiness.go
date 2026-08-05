@@ -4,12 +4,13 @@ import "math"
 
 // ReadinessScore estimates how safe an automated migration is (0-100).
 //
-// Scoring philosophy (better than silent ingress2gateway drops):
+// Scoring philosophy:
 //   - Start at 100
 //   - Each L1 finding is free
 //   - Each L2 finding costs a little (policy CRDs must exist)
 //   - Each L3 finding costs a lot (human rewrite required)
 //   - Partial snippet promotions cost medium
+// Every migration annotation should produce a finding; nothing is omitted quietly.
 func (b *MigrationBundle) ReadinessScore() int {
 	if b == nil || len(b.Findings) == 0 {
 		return 100

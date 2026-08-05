@@ -1,6 +1,6 @@
 # Roadmap
 
-GateShift’s north star: migrate large Ingress fleets to Gateway API **without silent annotation loss** and **without inventing unsafe proxy config**.
+GateShift’s north star: migrate large Ingress fleets to Gateway API with **explicit annotation reporting** and **without inventing unsafe proxy config**.
 
 ## Done (current baseline)
 
@@ -18,8 +18,12 @@ GateShift’s north star: migrate large Ingress fleets to Gateway API **without 
 
 ### P0 — Production hardening
 
-- [ ] goreleaser + GitHub Releases (linux/darwin/windows)
-- [ ] CI: `go test`, `gofmt`, golangci-lint, smoke job on KinD
+- [x] goreleaser + GitHub Releases (linux/darwin/windows + arm64)
+- [x] CI: `go test`, `gofmt`, corpus scoreboard, GoReleaser check
+- [x] KinD smoke workflow (Envoy Gateway) on PR / main
+- [x] One-line install script (`scripts/install.sh`)
+- [x] Public corpus + multi-provider `gateshift scoreboard` (Envoy / Cilium / Istio / Kong / standard)
+- [x] Compare doc + committed scoreboard snapshot
 - [ ] Signed containers for `gateshift-operator`
 - [ ] Helm chart values docs + install NOTES
 - [ ] `--http-only` / TLS secret awareness in convert for lab clusters
@@ -27,8 +31,9 @@ GateShift’s north star: migrate large Ingress fleets to Gateway API **without 
 
 ### P1 — Fleet coverage
 
-- [ ] Import public + private Ingress corpus under `examples/corpus/`
-- [ ] Corpus CI: every fixture must `audit` and either `validate` or assert expected L3
+- [x] Import public + GitHub Ingress corpus under `examples/corpus/`
+- [x] Corpus CI: scoreboard on every PR (unreported annotations must stay 0)
+- [ ] Grow corpus toward 50–100 fixtures (charts + more upstream examples)
 - [ ] Traefik / AWS ALB / GCE Ingress annotation adapters
 - [ ] Live `GatewayClass` feature discovery (replace static matrix where possible)
 - [ ] Dual-run helper: keep Ingress + attach HTTPRoute for shadowed traffic
@@ -60,5 +65,5 @@ GateShift’s north star: migrate large Ingress fleets to Gateway API **without 
 |--------|--------|
 | Catalog implementation | ≥ 90% of tracked NGINX keys |
 | Fleet readiness ≥ 60 | ≥ 80% of scanned Ingresses |
-| Silent drops | Zero — every annotation produces a finding |
+| Unreported annotations | Zero — every annotation produces a finding |
 | KinD smoke | Green on release tags |

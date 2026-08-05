@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: snippet-heavy
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+    nginx.ingress.kubernetes.io/server-snippet: |
+      set $block 0;
+    nginx.ingress.kubernetes.io/modsecurity-snippet: |
+      SecRuleEngine On
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: waf.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: waf-app
+                port:
+                  number: 80

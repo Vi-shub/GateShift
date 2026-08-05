@@ -8,8 +8,10 @@ This document describes how to verify GateShift locally and on a KinD cluster.
 |-------|----------------|---------------|
 | Unit | `make test` / `go test ./...` | All packages green |
 | Offline CLI | `audit` / `convert` / `validate` / `coverage` | Expected L1/L2/L3 outcomes |
+| Corpus scoreboard | `make scoreboard` / `gateshift scoreboard` | All providers scored; unreported annotations = 0 |
 | Conformance gate | `validate` on snippet fixtures | Must **FAIL** on hard L3 |
-| Cluster smoke | `scripts/test-smoke.sh` | Envoy returns backend body (`checkout-ok`) |
+| Cluster smoke | `scripts/test-smoke.sh` (CI: `.github/workflows/smoke.yml`) | Envoy returns backend body (`checkout-ok`) |
+| Release | `.github/workflows/release.yml` + GoReleaser | Tagged `v*` publishes multi-OS binaries |
 
 ## Offline CLI (any OS)
 
@@ -21,6 +23,10 @@ gateshift audit -f examples/ingress-checkout.yaml --target=envoy-gateway
 gateshift convert -f examples/ingress-checkout.yaml --target=envoy-gateway -o gateway.yaml
 gateshift validate -f examples/ingress-checkout.yaml --target=envoy-gateway
 gateshift coverage -f examples/ingress-checkout.yaml
+
+# Multi-provider corpus scoreboard
+make scoreboard
+# or: gateshift scoreboard -f examples/corpus -o docs/scoreboard.md
 
 # Expected FAIL (L3 block):
 gateshift validate -f examples/ingress-with-snippet.yaml --target=envoy-gateway

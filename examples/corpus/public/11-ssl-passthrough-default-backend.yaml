@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: passthrough
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/default-backend: fallback
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - passthrough.example.com
+      secretName: passthrough-tls
+  rules:
+    - host: passthrough.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mtls-app
+                port:
+                  number: 443
