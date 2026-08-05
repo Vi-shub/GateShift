@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	networkingv1 "k8s.io/api/networking/v1"
 	"github.com/spf13/cobra"
+	networkingv1 "k8s.io/api/networking/v1"
 
 	"github.com/gateshift/gateshift/pkg/audit"
 	"github.com/gateshift/gateshift/pkg/cluster"

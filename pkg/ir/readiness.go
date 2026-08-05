@@ -10,6 +10,7 @@ import "math"
 //   - Each L2 finding costs a little (policy CRDs must exist)
 //   - Each L3 finding costs a lot (human rewrite required)
 //   - Partial snippet promotions cost medium
+//
 // Every migration annotation should produce a finding; nothing is omitted quietly.
 func (b *MigrationBundle) ReadinessScore() int {
 	if b == nil || len(b.Findings) == 0 {

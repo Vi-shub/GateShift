@@ -14,24 +14,24 @@ import (
 
 // PRRequest describes an automated migration PR.
 type PRRequest struct {
-	Repo          string // owner/name
-	BaseBranch    string
-	BranchPrefix  string
-	Title         string
-	ManifestYAML  []byte
-	Bundle        *ir.MigrationBundle
-	IngressName   string
-	DryRunDir     string // if set (or no token), write files instead of opening a PR
-	GitHubToken   string
+	Repo         string // owner/name
+	BaseBranch   string
+	BranchPrefix string
+	Title        string
+	ManifestYAML []byte
+	Bundle       *ir.MigrationBundle
+	IngressName  string
+	DryRunDir    string // if set (or no token), write files instead of opening a PR
+	GitHubToken  string
 }
 
 // PRResult is the outcome of CreateMigrationPR.
 type PRResult struct {
-	URL      string
-	Branch   string
-	DryRun   bool
-	Files    []string
-	Body     string
+	URL    string
+	Branch string
+	DryRun bool
+	Files  []string
+	Body   string
 }
 
 // CreateMigrationPR opens a GitHub PR when a token is present; otherwise writes a dry-run folder.

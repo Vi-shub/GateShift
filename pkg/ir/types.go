@@ -55,12 +55,12 @@ type AuditFinding struct {
 
 // MigrationBundle is the IR produced from one or more Ingress resources.
 type MigrationBundle struct {
-	SourceNamespace string           `json:"sourceNamespace"`
-	Gateways        []GatewayIR      `json:"gateways,omitempty"`
-	HTTPRoutes      []HTTPRouteIR    `json:"httpRoutes,omitempty"`
-	Policies        []PolicyIR       `json:"policies,omitempty"`
-	Certificates    []CertificateIR  `json:"certificates,omitempty"`
-	Findings        []AuditFinding   `json:"findings,omitempty"`
+	SourceNamespace string          `json:"sourceNamespace"`
+	Gateways        []GatewayIR     `json:"gateways,omitempty"`
+	HTTPRoutes      []HTTPRouteIR   `json:"httpRoutes,omitempty"`
+	Policies        []PolicyIR      `json:"policies,omitempty"`
+	Certificates    []CertificateIR `json:"certificates,omitempty"`
+	Findings        []AuditFinding  `json:"findings,omitempty"`
 }
 
 // GatewayIR is a provider-neutral Gateway description.

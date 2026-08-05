@@ -81,11 +81,11 @@ func Catalog() []CatalogEntry {
 
 // CoverageStats summarizes catalog implementation status.
 type CoverageStats struct {
-	Total        int
-	Implemented  int
-	ByLevel      map[adapters.Level]int
-	MissingKeys  []string
-	Percent      float64
+	Total       int
+	Implemented int
+	ByLevel     map[adapters.Level]int
+	MissingKeys []string
+	Percent     float64
 }
 
 // CatalogCoverage returns how much of the tracked annotation catalog is implemented.

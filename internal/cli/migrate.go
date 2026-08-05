@@ -16,14 +16,14 @@ import (
 
 func newMigrateCmd() *cobra.Command {
 	var (
-		file         string
-		target       string
-		gwClass      string
-		repo         string
-		baseBranch   string
-		dryRunDir    string
-		autoPR       bool
-		output       string
+		file       string
+		target     string
+		gwClass    string
+		repo       string
+		baseBranch string
+		dryRunDir  string
+		autoPR     bool
+		output     string
 	)
 	cmd := &cobra.Command{
 		Use:   "migrate",

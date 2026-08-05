@@ -6,12 +6,12 @@ import (
 
 // MigrationRequestSpec defines an Ingress → Gateway API migration.
 type MigrationRequestSpec struct {
-	SourceIngressRef ObjectRef      `json:"sourceIngressRef"`
-	TargetGatewayRef *ObjectRef     `json:"targetGatewayRef,omitempty"`
-	TargetProvider   string         `json:"targetProvider"`
-	GatewayClassName string         `json:"gatewayClassName,omitempty"`
-	DryRun           bool           `json:"dryRun,omitempty"`
-	GitOps           *GitOpsSpec    `json:"gitops,omitempty"`
+	SourceIngressRef ObjectRef   `json:"sourceIngressRef"`
+	TargetGatewayRef *ObjectRef  `json:"targetGatewayRef,omitempty"`
+	TargetProvider   string      `json:"targetProvider"`
+	GatewayClassName string      `json:"gatewayClassName,omitempty"`
+	DryRun           bool        `json:"dryRun,omitempty"`
+	GitOps           *GitOpsSpec `json:"gitops,omitempty"`
 }
 
 // ObjectRef references a namespaced object.
@@ -30,18 +30,18 @@ type GitOpsSpec struct {
 
 // MigrationRequestStatus is the observed state.
 type MigrationRequestStatus struct {
-	Phase        string            `json:"phase,omitempty"`
-	Message      string            `json:"message,omitempty"`
-	PRURL        string            `json:"prURL,omitempty"`
-	AuditSummary *AuditSummary     `json:"auditSummary,omitempty"`
+	Phase        string             `json:"phase,omitempty"`
+	Message      string             `json:"message,omitempty"`
+	PRURL        string             `json:"prURL,omitempty"`
+	AuditSummary *AuditSummary      `json:"auditSummary,omitempty"`
 	Conditions   []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // AuditSummary counts translation outcomes.
 type AuditSummary struct {
-	Direct          int `json:"direct"`
-	RequiresPolicy  int `json:"requiresPolicy"`
-	Untranslatable  int `json:"untranslatable"`
+	Direct         int `json:"direct"`
+	RequiresPolicy int `json:"requiresPolicy"`
+	Untranslatable int `json:"untranslatable"`
 }
 
 // MigrationRequest is the Schema for the migrationrequests API.

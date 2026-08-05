@@ -97,9 +97,9 @@ func merge(a, b map[Feature]bool) map[Feature]bool {
 
 // Issue is a conformance problem found in a bundle.
 type Issue struct {
-	Feature Feature
+	Feature  Feature
 	Severity string // warn | error
-	Message string
+	Message  string
 }
 
 // Result aggregates conformance findings.

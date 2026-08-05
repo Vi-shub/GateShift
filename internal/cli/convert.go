@@ -13,12 +13,12 @@ import (
 
 func newConvertCmd() *cobra.Command {
 	var (
-		file     string
-		output   string
-		target   string
-		gwClass  string
-		gwName   string
-		noGW     bool
+		file    string
+		output  string
+		target  string
+		gwClass string
+		gwName  string
+		noGW    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "convert",

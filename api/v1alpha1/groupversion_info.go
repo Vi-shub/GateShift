@@ -10,7 +10,7 @@ import (
 const GroupName = "gateshift.io"
 
 var (
-	GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
+	GroupVersion  = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme   = SchemeBuilder.AddToScheme
 )

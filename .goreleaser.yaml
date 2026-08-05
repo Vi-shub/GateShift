@@ -46,7 +46,7 @@ builds:
 
 archives:
   - id: gateshift
-    builds:
+    ids:
       - gateshift
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
@@ -61,7 +61,7 @@ archives:
       - README.md
 
   - id: gateshift-operator
-    builds:
+    ids:
       - gateshift-operator
     name_template: >-
       {{ .ProjectName }}-operator_{{ .Version }}_{{ .Os }}_{{ .Arch }}

@@ -65,10 +65,10 @@ func (CustomHTTPErrorsAdapter) Transform(key, value string, ctx *adapters.Contex
 		Provider:  ctx.Provider,
 		TargetRef: ir.ParentRefIR{Name: ctx.Meta.IngressName, Namespace: ctx.Meta.Namespace},
 		Spec: map[string]any{
-			"apiVersion": "gateshift.io/v1alpha1",
-			"kind":       "CustomErrorPolicy",
+			"apiVersion":  "gateshift.io/v1alpha1",
+			"kind":        "CustomErrorPolicy",
 			"statusCodes": codes,
-			"note":       "Point at a custom default-backend / error pages service; no portable Core filter",
+			"note":        "Point at a custom default-backend / error pages service; no portable Core filter",
 		},
 	}
 	if ctx.Provider == ir.ProviderEnvoyGateway {

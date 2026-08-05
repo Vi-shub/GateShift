@@ -8,7 +8,7 @@ import (
 // RewriteAdapter maps rewrite-target → HTTPRoute URLRewrite (Level 1).
 type RewriteAdapter struct{}
 
-func (RewriteAdapter) Name() string       { return "rewrite-target" }
+func (RewriteAdapter) Name() string          { return "rewrite-target" }
 func (RewriteAdapter) Level() adapters.Level { return adapters.Level1 }
 func (RewriteAdapter) CanHandle(key string) bool {
 	return key == AnnRewriteTarget
