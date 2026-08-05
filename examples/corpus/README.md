@@ -2,36 +2,37 @@
 
 Fixtures used by `gateshift scoreboard` and adapter regression tests.
 
-| Tree | Source |
-|------|--------|
-| `public/` | Curated shapes (rewrite, rate limit, canary, auth, snippets, …) |
-| `github/` | Real examples from [kubernetes/ingress-nginx](https://github.com/kubernetes/ingress-nginx) |
-| `*.yaml` (root) | Extra local cases (canary pair, header-only snippets) |
+| Tree | Source | Approx. count |
+|------|--------|---------------|
+| `public/` | Curated GateShift shapes | 15 |
+| `github/` | [kubernetes/ingress-nginx](https://github.com/kubernetes/ingress-nginx) docs/examples (+ local extracts) | ~20 |
+| `traefik/` | [traefik/traefik](https://github.com/traefik/traefik) ingress-nginx provider fixtures | ~55 |
+| `community/` | Community migration samples (e.g. ingress2keg) | 1+ |
+| `*.yaml` (root) | Extra local cases | 2 |
 
 ```bash
 gateshift scoreboard -f examples/corpus -o docs/scoreboard.md
+# or: make scoreboard
 ```
 
 Providers scored: `standard` · `envoy-gateway` · `cilium` · `istio` · `kong`.
 
-## Where to find more public fixtures / demos
+Non-Ingress YAML (Deployments, Services) under the tree is skipped automatically.
 
-Copy interesting Ingress YAML into `examples/corpus/github/` or `examples/corpus/public/`, then re-run the scoreboard. Prefer real upstream examples over inventing exotic cases.
+## Where to find more public fixtures / demos
 
 | Source | What to harvest |
 |--------|-----------------|
-| [kubernetes/ingress-nginx](https://github.com/kubernetes/ingress-nginx) `docs/examples/` | Official rewrite, affinity, auth, TLS, canary, snippets |
-| [ingress-nginx deploy/examples](https://github.com/kubernetes/ingress-nginx/tree/main/deploy) | Common deploy shapes |
-| [cert-manager docs](https://cert-manager.io/docs/usage/ingress/) | `cert-manager.io/*` issuer annotations |
-| [Bitnami charts](https://github.com/bitnami/charts) / [Artifact Hub](https://artifacthub.io/) | Search charts for `kind: Ingress` + nginx annotations |
-| [stefanprodan/podinfo](https://github.com/stefanprodan/podinfo) | Small app already used in `examples/demo-podinfo` |
-| [Gateway API examples](https://github.com/kubernetes-sigs/gateway-api/tree/main/examples) | Target shapes (not Ingress, useful for expected output) |
-| [Envoy Gateway examples](https://github.com/envoyproxy/gateway/tree/main/examples) | Policy CRDs to compare L2 emission |
-| [Cilium Gateway API docs](https://docs.cilium.io/en/stable/network/servicemesh/gateway-api/) | Cilium-oriented migration targets |
-| [Istio Ingress → Gateway](https://istio.io/latest/docs/tasks/traffic-management/ingress/) | Mesh migration examples |
-| Public GitHub code search | `nginx.ingress.kubernetes.io/rewrite-target filename:*.yaml` (and other keys) |
+| [ingress-nginx `docs/examples`](https://github.com/kubernetes/ingress-nginx/tree/main/docs/examples) | Official rewrite, affinity, auth, TLS, canary, gRPC |
+| [Traefik ingress-nginx fixtures](https://github.com/traefik/traefik/tree/master/pkg/provider/kubernetes/ingress-nginx/fixtures/ingresses) | ~100 single-annotation unit fixtures |
+| [log1cb0mb/ingress2keg](https://github.com/log1cb0mb/ingress2keg) | Comprehensive annotation → Gateway API sample |
+| [cert-manager Ingress docs](https://cert-manager.io/docs/usage/ingress/) | Issuer annotations |
+| [Bitnami charts](https://github.com/bitnami/charts) / [Artifact Hub](https://artifacthub.io/) | Chart Ingresses with nginx annotations |
+| [stefanprodan/podinfo](https://github.com/stefanprodan/podinfo) | App demo (`examples/demo-podinfo`) |
+| [Envoy Gateway examples](https://github.com/envoyproxy/gateway/tree/main/examples) | Target Policy shapes |
+| GitHub code search | `nginx.ingress.kubernetes.io/limit-rps filename:*.yaml` |
 
-In-repo demos (not scoreboard corpus, but good E2E):
+In-repo demos (E2E, not only scoreboard):
 
 - `examples/demo-podinfo/` + `scripts/demo-podinfo.sh`
 - `examples/ingress-checkout.yaml` + `scripts/test-smoke.sh`

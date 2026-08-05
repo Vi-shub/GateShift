@@ -18,9 +18,11 @@ annotation reporting versus a structure-only baseline.
 | 10 | `10-snippet-modsecurity.yaml` | L3 snippets / WAF |
 | 11 | `11-ssl-passthrough-default-backend.yaml` | TLS passthrough |
 | 12 | `12-backend-tls-upstream-hash.yaml` | Backend TLS + hash |
+| 13 | `13-permanent-temporal-redirect.yaml` | Permanent + www redirect |
+| 14 | `14-denylist-modsecurity.yaml` | IP deny + ModSecurity L3 |
+| 15 | `15-app-root-www-redirect.yaml` | App-root + www + SSL redirect |
 
-Plus `examples/corpus/github/*` (ingress-nginx upstream examples) and local
-canary/snippet fixtures.
+Also see `examples/corpus/github/`, `traefik/`, and `community/` for upstream fixtures.
 
 ```bash
 gateshift scoreboard -f examples/corpus -o docs/scoreboard.md

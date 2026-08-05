@@ -215,7 +215,7 @@ pkg/scoreboard/            Multi-provider corpus scoring
 charts/gateshift-operator/ Helm chart
 config/crd/                CRD manifests
 examples/                  Sample Ingress + demos
-examples/corpus/           Public + GitHub regression fixtures
+examples/corpus/           Public + GitHub + Traefik + community fixtures
 scripts/                   Install, KinD smoke / demo
 docs/                      Architecture, compare, scoreboard
 Logo/                      Project brand asset

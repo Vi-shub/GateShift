@@ -38,15 +38,7 @@ make scoreboard
 
 Committed snapshot: [scoreboard.md](scoreboard.md)
 
-Latest local run (**25 fixtures**):
-
-| Provider | Avg readiness | ≥60 ready | Validate pass | Unreported (GateShift) | Structure-only baseline* |
-|----------|--------------:|----------:|--------------:|-----------------------:|-------------------------:|
-| `envoy-gateway` | 78.9 | 21 | 23/25 | **0** | 82 |
-| `cilium` | 76.4 | 20 | 21/25 | **0** | 82 |
-| `istio` | 76.4 | 20 | 17/25 | **0** | 82 |
-| `kong` | 76.4 | 20 | 17/25 | **0** | 82 |
-| `standard` | 76.4 | 20 | 15/25 | **0** | 82 |
+Latest numbers are regenerated in [scoreboard.md](scoreboard.md) (`make scoreboard`). Corpus currently includes curated `public/`, ingress-nginx `github/`, Traefik provider fixtures, and community samples (80+ Ingress YAML files).
 
 \*Structure-only baseline counts migration annotation keys present on fixtures (annotations that a hosts/paths/TLS-only conversion would not represent).
 

@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: redirect-combo
+  namespace: demo
+  annotations:
+    nginx.ingress.kubernetes.io/permanent-redirect: "https://new.example.com$request_uri"
+    nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: old.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: unused
+                port:
+                  number: 80

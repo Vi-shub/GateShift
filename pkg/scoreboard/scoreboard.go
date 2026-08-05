@@ -94,12 +94,18 @@ func Run(opts Options) (*Report, error) {
 		return nil, fmt.Errorf("no Ingress YAML fixtures under %s", root)
 	}
 
-	rep := &Report{Root: root, Files: files}
+	var usable []string
+	rep := &Report{Root: root}
 	for _, file := range files {
 		ingresses, err := loader.LoadIngressFile(file)
 		if err != nil {
+			// Skip non-Ingress YAML (Services, Deployments, docs bundles).
+			if strings.Contains(err.Error(), "no Ingress resources found") {
+				continue
+			}
 			return nil, fmt.Errorf("%s: %w", file, err)
 		}
+		usable = append(usable, file)
 		annKeys := countMigrationAnnotations(ingresses)
 		rel := relPath(root, file)
 		baselineDrops := annKeys // structure-only tools typically ignore these
@@ -132,6 +138,10 @@ func Run(opts Options) (*Report, error) {
 			})
 		}
 	}
+	if len(usable) == 0 {
+		return nil, fmt.Errorf("no Ingress YAML fixtures under %s", root)
+	}
+	rep.Files = usable
 	rep.ByProvider = summarize(rep.Results, providers)
 	return rep, nil
 }
