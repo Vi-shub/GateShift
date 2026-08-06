@@ -74,10 +74,11 @@ type MigrationBundle struct {
 
 // GatewayIR is a provider-neutral Gateway description.
 type GatewayIR struct {
-	Name      string
-	Namespace string
-	ClassName string
-	Listeners []ListenerIR
+	Name        string
+	Namespace   string
+	ClassName   string
+	Listeners   []ListenerIR
+	Annotations map[string]string
 }
 
 // ListenerIR describes a Gateway listener.

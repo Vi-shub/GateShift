@@ -45,3 +45,12 @@ Emitters must **not** re-parse Ingress annotations.
 ## Validate from IR
 
 `conformance.ValidateBundle` prefers `bundle.RequiredFeatures` over re-scanning YAML shapes, so feature detection and emission stay one source of truth.
+
+## Dual-run (post-IR mode)
+
+`gateshift dual-run` runs the same pipeline, then `ApplyDualRunMode`:
+
+- Renames resources to staging / `*-shadow` names
+- Annotates `gateshift.io/mode=dual-run` and `gateshift.io/shadow=true`
+- Never emits or deletes Ingress
+- Prints a cutover checklist on stderr

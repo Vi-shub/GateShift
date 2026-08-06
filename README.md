@@ -94,6 +94,9 @@ gateshift audit -f examples/ingress-checkout.yaml --target=envoy-gateway
 # Emit Gateway API manifests
 gateshift convert -f examples/ingress-checkout.yaml --target=envoy-gateway -o gateway.yaml
 
+# Dual-run: staging Gateway + shadow HTTPRoute; Ingress stays live
+gateshift dual-run -f examples/ingress-checkout.yaml --target=envoy-gateway -o dual-run.yaml
+
 # Fail closed on untranslatable features
 gateshift validate -f examples/ingress-checkout.yaml --target=envoy-gateway
 
@@ -157,6 +160,7 @@ How to read it: [docs/SCOREBOARD.md](docs/SCOREBOARD.md) · latest numbers: [doc
 |---------|---------|
 | `audit` | L1/L2/L3 matrix + readiness score (file or `--namespace`) |
 | `convert` | Emit Gateway / HTTPRoute / Policy YAML |
+| `dual-run` | Staging Gateway + shadow HTTPRoute; leave Ingress live |
 | `diff` | Structural Ingress vs Gateway API view |
 | `validate` | Provider capability / conformance gate |
 | `migrate` | Convert + GitHub PR or local dry-run pack |

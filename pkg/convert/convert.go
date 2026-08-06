@@ -464,8 +464,9 @@ func toGateway(gw ir.GatewayIR) (*gatewayv1.Gateway, error) {
 			Kind:       "Gateway",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      gw.Name,
-			Namespace: gw.Namespace,
+			Name:        gw.Name,
+			Namespace:   gw.Namespace,
+			Annotations: gw.Annotations,
 		},
 		Spec: gatewayv1.GatewaySpec{
 			GatewayClassName: class,

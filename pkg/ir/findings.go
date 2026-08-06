@@ -24,6 +24,7 @@ const (
 	FindingIDQuirkPreserveRegex     = "quirk.preserve-regex"
 	FindingIDQuirkURLNormalization  = "quirk.url-normalization"
 	FindingIDCanaryMerge            = "canary.merge"
+	FindingIDDualRun                = "dual-run.shadow"
 )
 
 // Evidence pins a finding to source objects.

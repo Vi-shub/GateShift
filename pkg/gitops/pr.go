@@ -101,7 +101,7 @@ func BuildPRBody(bundle *ir.MigrationBundle, ingressName string) string {
 	fmt.Fprintf(&b, "### Checklist\n\n")
 	fmt.Fprintf(&b, "- [ ] Conformance report reviewed for target controller\n")
 	fmt.Fprintf(&b, "- [ ] Level 3 snippets rewritten or accepted as debt\n")
-	fmt.Fprintf(&b, "- [ ] Canary / dual-run plan for production cutover\n")
+	fmt.Fprintf(&b, "- [ ] Canary / dual-run plan (`gateshift dual-run`) for production cutover\n")
 	return b.String()
 }
 

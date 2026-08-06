@@ -22,6 +22,7 @@ func NewRootCommand() *cobra.Command {
 	}
 	cmd.AddCommand(newAuditCmd())
 	cmd.AddCommand(newConvertCmd())
+	cmd.AddCommand(newDualRunCmd())
 	cmd.AddCommand(newDiffCmd())
 	cmd.AddCommand(newValidateCmd())
 	cmd.AddCommand(newMigrateCmd())

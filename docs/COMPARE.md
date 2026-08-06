@@ -12,6 +12,7 @@ GateShift is a CLI migration tool (with an optional operator) focused on annotat
 | Preserve rate limits, CORS, cert-manager, affinity, canaries, snippets | GateShift |
 | CI readiness score / fail-closed validate | GateShift |
 | Provider-oriented Policy emission (Envoy, Cilium, Istio, Kong) | GateShift |
+| Dual-run / shadow cutover (Ingress stays live) | GateShift (`dual-run`) |
 | GitOps PR / in-cluster `MigrationRequest` | GateShift |
 
 ## Capability matrix

@@ -75,7 +75,7 @@ Valid Gateway API YAML can still be **unschedulable** on a cluster whose control
 1. `gateshift audit` — inventory L1/L2/L3 debt  
 2. Rewrite L3 snippets (or accept exceptions)  
 3. `gateshift convert --target=envoy-gateway` + `validate`  
-4. Dual-run: keep Ingress, attach HTTPRoute to staging Gateway  
+4. `gateshift dual-run` — keep Ingress, apply staging Gateway + `*-shadow` HTTPRoute  
 5. `gateshift migrate` / operator GitOps PR  
 6. Flip DNS / Gateway listeners; delete Ingress last  
 

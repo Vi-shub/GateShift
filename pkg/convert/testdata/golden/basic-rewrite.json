@@ -14,7 +14,8 @@
           "Hostname": "web.example.com",
           "TLS": null
         }
-      ]
+      ],
+      "Annotations": null
     }
   ],
   "httpRoutes": [

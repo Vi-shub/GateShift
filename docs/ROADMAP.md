@@ -37,7 +37,7 @@ GateShift’s north star: migrate large Ingress fleets to Gateway API with **exp
 - [ ] Grow corpus toward 50–100 fixtures (charts + more upstream examples)
 - [ ] Traefik / AWS ALB / GCE Ingress annotation adapters
 - [ ] Live `GatewayClass` feature discovery (replace static matrix where possible)
-- [ ] Dual-run helper: keep Ingress + attach HTTPRoute for shadowed traffic
+- [x] Dual-run helper: keep Ingress + attach HTTPRoute for shadowed traffic (`gateshift dual-run`)
 
 ### P2 — Operator maturity
 
