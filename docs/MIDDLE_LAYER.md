@@ -17,19 +17,19 @@ Emitters must **not** re-parse Ingress annotations.
 
 ## Ordered pipeline
 
-1. **Host-index + quirks** — cross-Ingress Ingress-NGINX semantics  
-2. **Canary split** — primary vs canary Ingresses  
-3. **Adapters** — L1/L2/L3 annotation plug-ins  
-4. **Route build** — matches, filters, TLS listeners  
-5. **Canary merge** — weighted / header backends  
-6. **Quirk attach** — findings + optional preserve/emit flags  
-7. **FinalizeIR** — normalize findings, sort, annotate features  
+1. **Host-index + quirks:** cross-Ingress Ingress-NGINX semantics  
+2. **Canary split:** primary vs canary Ingresses  
+3. **Adapters:** L1/L2/L3 annotation plug-ins  
+4. **Route build:** matches, filters, TLS listeners  
+5. **Canary merge:** weighted / header backends  
+6. **Quirk attach:** findings + optional preserve/emit flags  
+7. **FinalizeIR:** normalize findings, sort, annotate features  
 
 ## Findings (never silent)
 
 | ID examples | Meaning |
 |-------------|---------|
-| `annotation.unknown` | Migration annotation with no adapter — recorded, not dropped |
+| `annotation.unknown` | Migration annotation with no adapter  -  recorded, not dropped |
 | `quirk.*` | Behavioral Ingress-NGINX semantics (`--preserve-nginx-regex`, etc.) |
 | `canary.merge` | Canary Ingress folded into primary route |
 | `path.regex` / `path.implementation-specific` | PathType fidelity |
@@ -38,9 +38,8 @@ Emitters must **not** re-parse Ingress annotations.
 
 ## Robustness tests
 
-- **IR goldens** — `pkg/convert` `-update-goldens`  
-- **Property / invariants** — schema, IDs, determinism, redirect/backend rules  
-- **Fuzz** — `FuzzFromIngresses` random annotation suffixes  
+- **IR goldens:** `pkg/convert` `-update-goldens`: **Property / invariants:** schema, IDs, determinism, redirect/backend rules  
+- **Fuzz:** `FuzzFromIngresses` random annotation suffixes  
 
 ## Validate from IR
 
@@ -51,6 +50,5 @@ Emitters must **not** re-parse Ingress annotations.
 `gateshift dual-run` runs the same pipeline, then `ApplyDualRunMode`:
 
 - Renames resources to staging / `*-shadow` names
-- Annotates `gateshift.io/mode=dual-run` and `gateshift.io/shadow=true`
-- Never emits or deletes Ingress
+- Annotates `gateshift.io/mode=dual-run` and `gateshift.io/shadow=true`: Never emits or deletes Ingress
 - Prints a cutover checklist on stderr

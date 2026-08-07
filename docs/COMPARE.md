@@ -30,7 +30,7 @@ GateShift is a CLI migration tool (with an optional operator) focused on annotat
 | Unreported annotations | Possible | Every migration annotation produces a finding |
 | Validate from IR-declared features | Re-scan shapes | `RequiredFeatures` + finding severity |
 | IR goldens / property / fuzz | Limited | `pkg/convert` goldens + fuzz |
-| Readiness score | No | 0–100 + label |
+| Readiness score | No | 0-100 + label |
 | Controller capability validate | No | `validate` profiles |
 | Corpus scoreboard | No | `gateshift scoreboard` |
 | Targets | Gateway API YAML | `standard` · `envoy-gateway` · `cilium` · `istio` · `kong` |
@@ -54,7 +54,7 @@ Envoy Gateway currently has the highest validate pass rate because L2 Policy emi
 
 ### How to read the numbers
 
-- **Unreported (GateShift) = 0** — unknown or hard features remain L3 findings; they are not omitted.
+- **Unreported (GateShift) = 0:** unknown or hard features remain L3 findings; they are not omitted.
 - **Validate FAIL** on snippet/WAF fixtures is intentional (fail closed).
 - **Provider columns** differ when Policy emission or the capability matrix diverges.
 

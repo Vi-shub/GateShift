@@ -27,7 +27,7 @@
 
 ---
 
-**GateShift** converts Kubernetes Ingress (including NGINX / cert-manager annotations) into [Gateway API](https://gateway-api.sigs.k8s.io/) manifests — without silently dropping policy.
+**GateShift** converts Kubernetes Ingress (including NGINX / cert-manager annotations) into [Gateway API](https://gateway-api.sigs.k8s.io/) manifests without silently dropping policy.
 
 Every feature is classified and reported:
 
@@ -53,7 +53,7 @@ Every feature is classified and reported:
 | GitOps | `migrate` PR / dry-run artifacts |
 | In-cluster | Optional `MigrationRequest` operator |
 
-Related-tool comparison + multi-provider scoreboard: [docs/COMPARE.md](docs/COMPARE.md) · design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+Related-tool comparison + multi-provider scoreboard: [docs/COMPARE.md](docs/COMPARE.md) · design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · plan: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ---
 
@@ -62,13 +62,13 @@ Related-tool comparison + multi-provider scoreboard: [docs/COMPARE.md](docs/COMP
 One-line (Linux / macOS, after the first GitHub Release):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gateshift/gateshift/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vi-shub/gateshift/main/scripts/install.sh | bash
 ```
 
 Or build from source (Go 1.22+):
 
 ```bash
-git clone https://github.com/gateshift/gateshift.git
+git clone https://github.com/vi-shub/gateshift.git
 cd gateshift
 make tidy test build
 # Linux:   bin/gateshift
@@ -142,10 +142,10 @@ make scoreboard
 
 | What it measures | Meaning |
 |------------------|---------|
-| Readiness 0–100 | Migration safety (`READY` / `READY_WITH_POLICIES` / `NEEDS_REVIEW` / `BLOCKED`) |
+| Readiness 0-100 | Migration safety (`READY` / `READY_WITH_POLICIES` / `NEEDS_REVIEW` / `BLOCKED`) |
 | L1 / L2 / L3 | Direct filters · provider Policies · manual / snippets |
 | Validate | Controller capability gate per target |
-| Unreported | Always **0** — every migration annotation becomes a finding |
+| Unreported | Always **0**. Every migration annotation becomes a finding |
 | Structure-only baseline | Annotation keys a hosts/paths/TLS-only conversion would omit |
 
 Providers scored: **Envoy Gateway**, **Cilium**, **Istio**, **Kong**, and portable **standard**.
@@ -167,15 +167,16 @@ How to read it: [docs/SCOREBOARD.md](docs/SCOREBOARD.md) · latest numbers: [doc
 | `coverage` | Catalog coverage and per-key `[OK]` / `[GAP]` / `[??]` |
 | `scoreboard` | Corpus report across Envoy / Cilium / Istio / Kong / standard |
 | `version` | Print CLI version |
+
 ---
 
 ## Annotation coverage
 
-**L1** — `rewrite-target`, `ssl-redirect`, `force-ssl-redirect`, permanent/temporal redirects, CORS, `from-to-www-redirect`, `app-root`, `x-forwarded-prefix`
+**L1:** `rewrite-target`, `ssl-redirect`, `force-ssl-redirect`, permanent/temporal redirects, CORS, `from-to-www-redirect`, `app-root`, `x-forwarded-prefix`
 
-**L2** — rate limits, cert-manager issuers, affinity / session cookies, IP allow/deny, proxy timeouts & body size, backend TLS, canary merge, mirroring, `use-regex`, auth-url scaffolds (Envoy), and the rest of the tracked catalog
+**L2:** rate limits, cert-manager issuers, affinity / session cookies, IP allow/deny, proxy timeouts & body size, backend TLS, canary merge, mirroring, `use-regex`, auth-url scaffolds (Envoy), and the rest of the tracked catalog
 
-**L3 / pattern-assisted** — `configuration-snippet`, `server-snippet`, `modsecurity-snippet`
+**L3 / pattern-assisted:** `configuration-snippet`, `server-snippet`, `modsecurity-snippet`
 
 Tracked catalog coverage is **100%** of listed keys (`gateshift coverage`). Snippets stay L3 by design: pattern-assisted, never silently dropped.
 
@@ -248,7 +249,8 @@ Logo/                      Project brand asset
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline, adapter model, cutover strategy |
 | [docs/ANNOTATION_FIDELITY.md](docs/ANNOTATION_FIDELITY.md) | Classification model and coverage loop |
 | [docs/TESTING.md](docs/TESTING.md) | Unit, CLI, CI, and KinD smoke testing |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Near-term and longer-term work |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What's done, phases 0-4, next priorities, success metrics |
+| [docs/MIDDLE_LAYER.md](docs/MIDDLE_LAYER.md) | IR contract (`gateshift.ir/v1`) and conversion pipeline |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to extend adapters and patterns |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community standards |
@@ -263,7 +265,7 @@ Logo/                      Project brand asset
 | Pattern library / canary merge | Usable |
 | KinD smoke path (Envoy Gateway) | Proven |
 | podinfo end-to-end demo | Proven |
-| Operator / Helm | Scaffold — harden before wide deploy |
+| Operator / Helm | Scaffold (harden before wide deploy) |
 | Multi-controller (Traefik, ALB, GCE) | Planned |
 
 GateShift prioritizes **safe, reviewable migration** over claiming fully automatic conversion of every Ingress edge case.
@@ -272,4 +274,4 @@ GateShift prioritizes **safe, reviewable migration** over claiming fully automat
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

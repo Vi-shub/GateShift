@@ -12,7 +12,7 @@ semantics are ignored.
 
 | ID | Behavior | Audit key | Preserve option |
 |----|----------|-----------|-----------------|
-| 1–3 | Regex is case-insensitive prefix; `use-regex` / `rewrite-target` force regex for the **host across Ingresses** | `gateshift.io/nginx-quirk/host-regex`, `.../path-as-regex` | `--preserve-nginx-regex` |
+| 1-3 | Regex is case-insensitive prefix; `use-regex` / `rewrite-target` force regex for the **host across Ingresses** | `gateshift.io/nginx-quirk/host-regex`, `.../path-as-regex` | `--preserve-nginx-regex` |
 | 4 | `/my-path` → **301** `/my-path/` | `gateshift.io/nginx-quirk/trailing-slash` | `--emit-trailing-slash-redirects` |
 | 5 | URL normalization (`.`, `..`, `//`) | `gateshift.io/nginx-quirk/url-normalization` | Controller-dependent (informational) |
 

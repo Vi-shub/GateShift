@@ -5,7 +5,7 @@ Thank you for helping improve Ingress → Gateway API migration safety.
 ## Development setup
 
 ```bash
-git clone https://github.com/gateshift/gateshift.git
+git clone https://github.com/vi-shub/gateshift.git
 cd gateshift
 make tidy
 make test
@@ -40,7 +40,7 @@ gateshift audit -f examples/your-fixture.yaml --target=envoy-gateway
 |------:|-------------|
 | L1 | Maps cleanly to Gateway API Core/Extended filters |
 | L2 | Needs a provider Policy / Certificate CRD |
-| L3 | Snippet, Lua, or no portable equivalent — flag + hints |
+| L3 | Snippet, Lua, or no portable equivalent  -  flag + hints |
 
 ## Extending the snippet pattern library
 

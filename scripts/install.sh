@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # One-line install:
-#   curl -fsSL https://raw.githubusercontent.com/gateshift/gateshift/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/vi-shub/gateshift/main/scripts/install.sh | bash
 set -euo pipefail
 
-REPO="${GATESHIFT_REPO:-gateshift/gateshift}"
+REPO="${GATESHIFT_REPO:-vi-shub/gateshift}"
 VERSION="${GATESHIFT_VERSION:-latest}"
 INSTALL_DIR="${GATESHIFT_INSTALL_DIR:-${HOME}/bin}"
 

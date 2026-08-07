@@ -85,7 +85,7 @@ changelog:
 
 release:
   github:
-    owner: gateshift
+    owner: vi-shub
     name: gateshift
   draft: false
   prerelease: auto

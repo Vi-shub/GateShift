@@ -33,10 +33,10 @@ Adapters write into a shared `Context` (filters, policies, certificates, finding
 
 Why this structure wins:
 
-1. **Testability** — each adapter has table tests
-2. **Provider variance** — L2 adapters branch on `ctx.Provider`
-3. **Extensibility** — Traefik/HAProxy adapters can register beside NGINX
-4. **Honest UX** — L3 adapters emit actionable hints (regex over snippet text), never fake YAML
+1. **Testability:** each adapter has table tests
+2. **Provider variance:** L2 adapters branch on `ctx.Provider`
+3. **Extensibility:** Traefik/HAProxy adapters can register beside NGINX
+4. **Honest UX:** L3 adapters emit actionable hints (regex over snippet text), never fake YAML
 
 ## Pipeline
 
@@ -63,8 +63,8 @@ See [MIDDLE_LAYER.md](MIDDLE_LAYER.md) for the IR finding/feature contract.
 
 Two delivery modes share one engine:
 
-- **CLI** (`gateshift`) — developer/CI workflow
-- **Operator** (`gateshift-operator`) — watches `MigrationRequest` CRs
+- **CLI** (`gateshift`)  -  developer/CI workflow
+- **Operator** (`gateshift-operator`)  -  watches `MigrationRequest` CRs
 
 ## Conformance matters more than pretty YAML
 
@@ -72,10 +72,10 @@ Valid Gateway API YAML can still be **unschedulable** on a cluster whose control
 
 ## Recommended production cutover
 
-1. `gateshift audit` — inventory L1/L2/L3 debt  
+1. `gateshift audit`: inventory L1/L2/L3 debt  
 2. Rewrite L3 snippets (or accept exceptions)  
 3. `gateshift convert --target=envoy-gateway` + `validate`  
-4. `gateshift dual-run` — keep Ingress, apply staging Gateway + `*-shadow` HTTPRoute  
+4. `gateshift dual-run`: keep Ingress, apply staging Gateway + `*-shadow` HTTPRoute  
 5. `gateshift migrate` / operator GitOps PR  
 6. Flip DNS / Gateway listeners; delete Ingress last  
 
@@ -85,7 +85,7 @@ Not 100% automatic conversion. Done means:
 
 - L1 is automatic and correct  
 - L2 is automatic **per target provider**, with CRDs installed  
-- L3 is **never silent** — every snippet becomes a PR checklist item  
+- L3 is **never silent:** every snippet becomes a PR checklist item  
 - Conformance fails closed when the controller can’t execute the route  
 
 That is how you migrate 100+ Ingresses without a weekend outage.

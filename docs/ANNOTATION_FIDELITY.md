@@ -14,11 +14,11 @@ For the capability matrix and multi-provider corpus report, see [COMPARE.md](COM
 
 ## Quality loop
 
-1. **Corpus** — collect real Ingress YAMLs (public fixtures and cluster exports)
-2. **Frequency rank** — prioritize annotations that appear most often
-3. **Pattern library** — promote safe, tested snippet idioms to L1/L2 when possible
-4. **Coverage** — `gateshift coverage` reports catalog gaps and unknown keys
-5. **Readiness** — `gateshift audit` prints a 0–100 migration safety score
+1. **Corpus:** collect real Ingress YAMLs (public fixtures and cluster exports)
+2. **Frequency rank:** prioritize annotations that appear most often
+3. **Pattern library:** promote safe, tested snippet idioms to L1/L2 when possible
+4. **Coverage:** `gateshift coverage` reports catalog gaps and unknown keys
+5. **Readiness:** `gateshift audit` prints a 0-100 migration safety score
 
 Automated invention of Envoy (or other proxy) config from arbitrary nginx/Lua is out of scope. Curated adapters and patterns with unit tests are the supported path.
 
