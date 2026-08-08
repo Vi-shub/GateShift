@@ -12,8 +12,13 @@ This document describes how to verify GateShift locally and on a KinD cluster.
 | Offline CLI | `audit` / `convert` / `validate` / `coverage` | Expected L1/L2/L3 outcomes |
 | Corpus scoreboard | `make scoreboard` / `gateshift scoreboard` | All providers scored; unreported annotations = 0 |
 | Conformance gate | `validate` on snippet fixtures | Must **FAIL** on hard L3 |
-| Cluster smoke | `scripts/test-smoke.sh` (CI: `.github/workflows/smoke.yml`) | Envoy returns backend body (`checkout-ok`) |
+| Cluster smoke (convert) | `scripts/test-smoke.sh` (CI: `.github/workflows/smoke.yml`) | Envoy returns backend body (`checkout-ok`) |
+| Dual-run KinD e2e | `scripts/test-dual-run.sh` (**planned**, see [ROADMAP.md](ROADMAP.md) Phase 0) | Shadow applied; Ingress untouched; staging curl OK |
 | Release | `.github/workflows/release.yml` + GoReleaser | Tagged `v*` publishes multi-OS binaries |
+
+### Coverage gaps to close next
+
+Unit dual-run exists (`pkg/convert/dualrun_test.go`). Still thin or missing: `internal/cli`, `internal/controller`, `pkg/cluster`, `pkg/gitops`, `pkg/audit`, `pkg/diff`, Helm lint in CI. Full list: [ROADMAP.md §4](ROADMAP.md).
 
 ## Offline CLI (any OS)
 

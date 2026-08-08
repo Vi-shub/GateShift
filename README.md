@@ -249,7 +249,7 @@ Logo/                      Project brand asset
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline, adapter model, cutover strategy |
 | [docs/ANNOTATION_FIDELITY.md](docs/ANNOTATION_FIDELITY.md) | Classification model and coverage loop |
 | [docs/TESTING.md](docs/TESTING.md) | Unit, CLI, CI, and KinD smoke testing |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | What's done, phases 0-4, next priorities, success metrics |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Detailed plan: code to add, tests to add, sprints, success metrics |
 | [docs/MIDDLE_LAYER.md](docs/MIDDLE_LAYER.md) | IR contract (`gateshift.ir/v1`) and conversion pipeline |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to extend adapters and patterns |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting |
