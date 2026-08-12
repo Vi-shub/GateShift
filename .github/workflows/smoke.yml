@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   envoy-smoke:
-    name: Envoy Gateway KinD smoke
+    name: Envoy Gateway convert smoke
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -41,7 +41,33 @@ jobs:
           kubectl version --client
           curl --version | head -n1
 
-      - name: Run smoke test
+      - name: Run convert smoke test
         env:
           PF_PORT: "18080"
         run: bash scripts/test-smoke.sh
+
+  dual-run-smoke:
+    name: Envoy Gateway dual-run smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build Linux CLI
+        run: go build -o bin/gateshift ./cmd/gateshift
+
+      - name: Create KinD cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: gateshift
+          wait: 120s
+
+      - name: Run dual-run smoke test
+        env:
+          PF_PORT: "18081"
+        run: bash scripts/test-dual-run.sh

@@ -1,0 +1,45 @@
+{{- /*
+Post-install notes for GateShift operator (scaffold).
+*/ -}}
+======================================================================
+ GateShift operator installed (scaffold)
+======================================================================
+
+Chart: {{ .Chart.Name }} {{ .Chart.Version }}
+App:   {{ .Chart.AppVersion }}
+NS:    {{ .Release.Namespace }}
+
+The operator watches MigrationRequest CRs, converts referenced Ingress
+objects, updates status, and can open a GitOps PR when GITHUB_TOKEN is set.
+
+It does NOT delete Ingresses. Prefer gateshift dual-run (CLI) for shadow
+cutover until operator DualRun mode ships (see docs/ROADMAP.md).
+
+Next steps
+----------
+1. Install CRDs if you used a chart without embedded CRDs:
+
+   kubectl apply -f config/crd/migrationrequest.yaml
+
+2. Apply an example (dry-run by default in examples):
+
+   kubectl apply -f examples/migrationrequest.yaml
+
+3. Watch status:
+
+   kubectl get migrationrequest -A
+   kubectl describe migrationrequest -n <ns> <name>
+
+4. For safe cutover today, use the CLI dual-run path:
+
+   gateshift dual-run -f <ingress.yaml> --target=envoy-gateway -o dual-run.yaml
+   kubectl apply -f dual-run.yaml   # staging Gateway + *-shadow HTTPRoute only
+
+Values of interest
+------------------
+  image.repository / image.tag
+  githubToken.existingSecret   # optional Secret with GitHub token for PRs
+  metrics.enabled / metrics.port
+
+Docs: https://github.com/vi-shub/gateshift
+======================================================================

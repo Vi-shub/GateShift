@@ -5,7 +5,7 @@ BIN_DIR := bin
 CORPUS := examples/corpus
 SCOREBOARD_OUT := docs/scoreboard.md
 
-.PHONY: all build build-operator test lint fmt tidy clean scoreboard run-audit run-convert run-dual-run run-validate run-migrate
+.PHONY: all build build-operator test lint fmt tidy clean scoreboard run-audit run-convert run-dual-run run-validate run-migrate helm-lint
 
 all: tidy test build build-operator
 
@@ -24,11 +24,15 @@ tidy:
 fmt:
 	gofmt -w .
 
+helm-lint:
+	helm lint charts/gateshift-operator
+	helm template gateshift-operator charts/gateshift-operator >/dev/null
+
 scoreboard: build
 	$(BIN_DIR)/$(APP)$(shell go env GOEXE) scoreboard -f $(CORPUS) -o $(SCOREBOARD_OUT)
 
 clean:
-	rm -rf $(BIN_DIR) .gateshift-pr
+	rm -rf $(BIN_DIR) .gateshift-pr .gateshift-e2e
 
 run-audit: build
 	$(BIN_DIR)/$(APP)$(shell go env GOEXE) audit -f examples/ingress-checkout.yaml --target=envoy-gateway

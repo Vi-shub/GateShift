@@ -13,12 +13,13 @@ This document describes how to verify GateShift locally and on a KinD cluster.
 | Corpus scoreboard | `make scoreboard` / `gateshift scoreboard` | All providers scored; unreported annotations = 0 |
 | Conformance gate | `validate` on snippet fixtures | Must **FAIL** on hard L3 |
 | Cluster smoke (convert) | `scripts/test-smoke.sh` (CI: `.github/workflows/smoke.yml`) | Envoy returns backend body (`checkout-ok`) |
-| Dual-run KinD e2e | `scripts/test-dual-run.sh` (**planned**, see [ROADMAP.md](ROADMAP.md) Phase 0) | Shadow applied; Ingress untouched; staging curl OK |
+| Dual-run KinD e2e | `scripts/test-dual-run.sh` (CI: dual-run smoke job) | Shadow applied; Ingress uid unchanged; staging curl OK |
+| Helm chart | `helm lint` / `make helm-lint` (CI: `helm-lint` job) | Chart lints and templates |
 | Release | `.github/workflows/release.yml` + GoReleaser | Tagged `v*` publishes multi-OS binaries |
 
-### Coverage gaps to close next
+### Coverage gaps still open
 
-Unit dual-run exists (`pkg/convert/dualrun_test.go`). Still thin or missing: `internal/cli`, `internal/controller`, `pkg/cluster`, `pkg/gitops`, `pkg/audit`, `pkg/diff`, Helm lint in CI. Full list: [ROADMAP.md §4](ROADMAP.md).
+Still thin or missing: `internal/cli`, `internal/controller`, `pkg/cluster`, `pkg/gitops`, `pkg/audit`, `pkg/diff`. Full list: [ROADMAP.md §4](ROADMAP.md).
 
 ## Offline CLI (any OS)
 
@@ -69,6 +70,44 @@ The script will:
 6. `curl` with `Host: checkout.example.com`
 
 Expected output includes: `PASS` and body `checkout-ok`.
+
+## Dual-run KinD e2e
+
+Proves the shadow cutover path: Ingress stays live while a staging Gateway + `*-shadow` HTTPRoute serve traffic.
+
+```bash
+cd /mnt/c/Users/<user>/Desktop/GateShift   # adjust path
+export PATH=$HOME/bin:$PATH
+bash scripts/test-dual-run.sh
+```
+
+The script will:
+
+1. Ensure Envoy Gateway + `GatewayClass/envoy`
+2. Apply checkout backends **and** the live Ingress
+3. Record Ingress uid, then run `gateshift dual-run`
+4. Assert YAML has dual-run annotations / staging names and **no** Ingress docs
+5. Apply Gateway + HTTPRoute only
+6. Assert Ingress uid unchanged and `checkout-shadow` annotated `gateshift.io/mode=dual-run`
+7. Port-forward staging Envoy Service and curl `Host: checkout.example.com`
+
+Expected: `PASS - dual-run applied shadow path; Ingress left live`.
+
+CI runs this as the **dual-run smoke** job in `.github/workflows/smoke.yml`.
+
+### Manual dual-run on any cluster
+
+```bash
+gateshift dual-run -f examples/ingress-checkout.yaml --target=envoy-gateway -o dual-run.yaml
+kubectl apply -f dual-run.yaml
+kubectl get ingress,gateway,httproute -n shop
+```
+
+### Helm chart lint
+
+```bash
+make helm-lint
+```
 
 ### Manual traffic check
 

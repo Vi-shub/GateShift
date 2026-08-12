@@ -40,14 +40,14 @@ GateShift is a **shipping CLI** with a real conversion engine. The operator/Helm
 
 | Gap | Why it matters |
 |-----|----------------|
-| Dual-run KinD demo / CI | Cutover story is unproven in cluster automation |
+| Dual-run KinD demo / CI | Cutover story proven (Sprint A); keep green on PRs |
 | Fleet batch (`--all-namespaces`, `--selector`) | Real teams have dozens of Ingresses |
 | `--http-only` / TLS secret awareness | Lab clusters break on missing certs |
 | Operator DualRun mode + conditions | In-cluster adoption blocked |
-| Helm NOTES + values docs | Installers lack guidance |
+| Helm NOTES + values docs | **Done (Sprint A)** |
 | Traefik / ALB / GCE adapters | Locked to NGINX-heavy fleets |
 | ReferenceGrant / cross-namespace | Common in multi-ns platforms |
-| Untested packages | CLI, controller, gitops, audit, diff, cluster |
+| Untested packages | CLI, controller, gitops, audit, diff, cluster (Helm lint now in CI) |
 
 ### Test coverage today
 
@@ -67,13 +67,13 @@ Make the current CLI trustworthy in labs and early production.
 
 | # | Work item | Code / files to add or change | Done when |
 |---|-----------|-------------------------------|-----------|
-| 0.1 | Dual-run KinD demo | `scripts/test-dual-run.sh` (and/or extend `scripts/demo-podinfo.sh`); wire step in `.github/workflows/smoke.yml` | Apply shadow YAML, curl staging Gateway, assert Ingress still present |
-| 0.2 | `--http-only` + TLS awareness | `pkg/convert/convert.go` (`Options`), emit listeners/certs; flags in `internal/cli/convert.go`, `dual_run.go` | Lab convert works without cert-manager secrets |
-| 0.3 | Helm NOTES + values docs | `charts/gateshift-operator/templates/NOTES.txt`, `charts/gateshift-operator/README.md` | Fresh install prints next steps |
-| 0.4 | README migration story | `README.md` short section: audit → dual-run → cutover | Linked from Quick start |
-| 0.5 | Scoreboard doc hygiene | Keep guide in `docs/SCOREBOARD.md`; CI writes `docs/scoreboard.md` only | Guide never overwritten by CI |
-| 0.6 | Dual-run docs in TESTING | `docs/TESTING.md` dual-run e2e section | Contributors know how to run it |
-| 0.7 | Signed operator images *(later in P0)* | Cosign / provenance in `.github/workflows/release.yml` + image build | Attested operator image on release |
+| 0.1 | Dual-run KinD demo | `scripts/test-dual-run.sh` (and/or extend `scripts/demo-podinfo.sh`); wire step in `.github/workflows/smoke.yml` | Apply shadow YAML, curl staging Gateway, assert Ingress still present | **Done (Sprint A)** |
+| 0.2 | `--http-only` + TLS awareness | `pkg/convert/convert.go` (`Options`), emit listeners/certs; flags in `internal/cli/convert.go`, `dual_run.go` | Lab convert works without cert-manager secrets | Open |
+| 0.3 | Helm NOTES + values docs | `charts/gateshift-operator/templates/NOTES.txt`, `charts/gateshift-operator/README.md` | Fresh install prints next steps | **Done (Sprint A)** |
+| 0.4 | README migration story | `README.md` short section: audit → dual-run → cutover | Linked from Quick start | **Done (Sprint A)** |
+| 0.5 | Scoreboard doc hygiene | Keep guide in `docs/SCOREBOARD.md`; CI writes `docs/scoreboard.md` only | Guide never overwritten by CI | Open (verify) |
+| 0.6 | Dual-run docs in TESTING | `docs/TESTING.md` dual-run e2e section | Contributors know how to run it | **Done (Sprint A)** |
+| 0.7 | Signed operator images *(later in P0)* | Cosign / provenance in `.github/workflows/release.yml` + image build | Attested operator image on release | Open |
 
 **Phase 0 exit:** new user installs CLI, runs dual-run on checkout/podinfo demo in KinD, and Helm NOTES explain operator stub without tribal knowledge.
 
@@ -185,7 +185,7 @@ Make in-cluster migration first-class.
 
 | Order | Item | Phase | Why |
 |------:|------|-------|-----|
-| 1 | Dual-run KinD demo + CI | 0 | Proves the cutover story end-to-end |
+| 1 | Dual-run KinD demo + CI | 0 | **Done (Sprint A)** |
 | 2 | README migration story + TESTING dual-run | 0 | Users find the path |
 | 3 | `--http-only` | 0 | Unblocks lab clusters |
 | 4 | Helm NOTES + values README | 0 | Operator installable without Slack |
@@ -199,14 +199,17 @@ Make in-cluster migration first-class.
 
 ## 6. Suggested sprint breakdown
 
-### Sprint A (Phase 0 core) — ~1 week focus
+### Sprint A (Phase 0 core) — dual-run proof
 
-- [ ] `scripts/test-dual-run.sh`
-- [ ] Wire dual-run into `smoke.yml`
-- [ ] README migration story
-- [ ] `docs/TESTING.md` dual-run section
-- [ ] Helm `NOTES.txt` + chart README
-- [ ] Unit tests for any convert flag added
+- [x] `scripts/test-dual-run.sh`
+- [x] Wire dual-run into `smoke.yml`
+- [x] README migration story
+- [x] `docs/TESTING.md` dual-run section
+- [x] Helm `NOTES.txt` + chart README
+- [x] Helm lint in CI (`ci.yml` + `make helm-lint`)
+- [ ] `--http-only` convert flag (moved to next / Sprint D if deferred)
+
+**Phase 0 remaining:** `--http-only`, signed operator images, scoreboard refresh after adapter changes.
 
 ### Sprint B (Fleet MVP) — Phase 1 start
 
@@ -225,7 +228,7 @@ Make in-cluster migration first-class.
 ### Sprint D (Breadth)
 
 - [ ] Traefik L1 adapters + fixtures
-- [ ] `--http-only` if not done in A
+- [ ] `--http-only` if not done earlier
 - [ ] Promote top `[??]` keys from `CORPUS_GAPS.md`
 - [ ] Refresh `docs/scoreboard.md`
 
@@ -264,10 +267,10 @@ GateShift wins on **annotation fidelity + honest findings + dual-run**.
 | Unreported migration annotations | 0 | Met (CI gate) |
 | IR schema | `gateshift.ir/v1` stable | Met |
 | Convert KinD smoke | Green on PR | Met |
-| Dual-run KinD demo | Green on PR | **Not met** (Phase 0) |
+| Dual-run KinD demo | Green on PR | **Met (Sprint A script + smoke job)** |
 | Fleet batch audit | One command per namespace/selector | **Not met** (Phase 1) |
 | Operator DualRun | Shadow applied + conditions | **Not met** (Phase 2) |
-| Helm NOTES | Present | **Not met** (Phase 0) |
+| Helm NOTES | Present | **Met (Sprint A)** |
 | Homebrew / Scoop | Published | **Not met** (Phase 3) |
 | Fleet readiness ≥ 60 | ≥ 80% of scanned Ingresses (stretch) | Customer-dependent |
 

@@ -131,6 +131,26 @@ gateshift audit --namespace shop --target=envoy-gateway
 
 ---
 
+## Migration story (recommended path)
+
+Treat cutover like a release, not a one-shot YAML rewrite:
+
+1. **Audit** — inventory L1 / L2 / L3 debt  
+   `gateshift audit -f ingress.yaml --target=envoy-gateway`
+2. **Fix or accept L3** — rewrite snippets, or document exceptions  
+3. **Convert + validate** — emit Gateway API YAML; fail closed on hard gaps  
+   `gateshift convert …` then `gateshift validate …`
+4. **Dual-run** — keep Ingress live; apply staging Gateway + `*-shadow` HTTPRoute  
+   `gateshift dual-run -f ingress.yaml --target=envoy-gateway -o dual-run.yaml`  
+   Then `kubectl apply -f dual-run.yaml` (Gateway/HTTPRoute only)
+5. **Compare** shadow traffic vs live Ingress  
+6. **GitOps** — `gateshift migrate` or open a PR when ready  
+7. **Cut over** — flip DNS / listeners; **delete Ingress last**
+
+KinD proof for step 4: `bash scripts/test-dual-run.sh` (CI: dual-run smoke job).
+
+---
+
 ## Corpus scoreboard
 
 GateShift ships a public Ingress corpus and a provider matrix so you can **prove** annotation fidelity instead of claiming it.
@@ -265,7 +285,7 @@ Logo/                      Project brand asset
 | Pattern library / canary merge | Usable |
 | KinD smoke path (Envoy Gateway) | Proven |
 | podinfo end-to-end demo | Proven |
-| Operator / Helm | Scaffold (harden before wide deploy) |
+| Operator / Helm | Scaffold + NOTES/README (harden DualRun before wide deploy) |
 | Multi-controller (Traefik, ALB, GCE) | Planned |
 
 GateShift prioritizes **safe, reviewable migration** over claiming fully automatic conversion of every Ingress edge case.

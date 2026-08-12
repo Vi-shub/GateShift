@@ -49,6 +49,20 @@ jobs:
           name: corpus-scoreboard
           path: docs/scoreboard.md
 
+  helm-lint:
+    name: Helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: Lint + template operator chart
+        run: |
+          helm lint charts/gateshift-operator
+          helm template gateshift-operator charts/gateshift-operator >/dev/null
+
   goreleaser-check:
     name: GoReleaser check
     runs-on: ubuntu-latest
