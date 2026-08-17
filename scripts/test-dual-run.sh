@@ -98,8 +98,8 @@ spec:
     spec:
       containers:
         - name: echo
-          image: hashicorp/http-echo:1.0
-          args: ["-text=checkout-ok", "-listen=:8080"]
+          image: registry.k8s.io/e2e-test-images/agnhost:2.39
+          args: ["netexec", "--http-port=8080"]
           ports:
             - containerPort: 8080
 ---
@@ -112,7 +112,7 @@ spec:
     app: checkout-ui
   ports:
     - port: 80
-      targetPort: 5678
+      targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -130,10 +130,10 @@ spec:
     spec:
       containers:
         - name: echo
-          image: hashicorp/http-echo:1.0
-          args: ["-text=ui-ok"]
+          image: registry.k8s.io/e2e-test-images/agnhost:2.39
+          args: ["netexec", "--http-port=8080"]
           ports:
-            - containerPort: 5678
+            - containerPort: 8080
 EOF
 
 kubectl apply -f "$INGRESS_FILE"
@@ -249,7 +249,7 @@ if [[ $CURL_RC -ne 0 ]]; then
   cat /tmp/gs-dual-pf.log >&2 || true
   exit 1
 fi
-if ! echo "$RESP" | grep -Eq "HTTP_CODE:(200|301|302|404|500)|checkout-ok|ui-ok"; then
+if ! echo "$RESP" | grep -Eq "HTTP_CODE:(200|301|302|404|500)|checkout-ok|ui-ok|NOW=|hostName="; then
   echo "Unexpected response (Envoy may still have answered)" >&2
 fi
 
