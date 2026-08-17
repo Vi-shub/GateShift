@@ -62,14 +62,14 @@ Related-tool comparison + multi-provider scoreboard: [docs/COMPARE.md](docs/COMP
 One-line (Linux / macOS, after the first GitHub Release):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vi-shub/gateshift/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vi-shub/GateShift/main/scripts/install.sh | bash
 ```
 
 Or build from source (Go 1.22+):
 
 ```bash
-git clone https://github.com/vi-shub/gateshift.git
-cd gateshift
+git clone https://github.com/vi-shub/GateShift.git
+cd GateShift
 make tidy test build
 # Linux:   bin/gateshift
 # Windows: bin/gateshift.exe

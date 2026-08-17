@@ -5,8 +5,8 @@ Thank you for helping improve Ingress → Gateway API migration safety.
 ## Development setup
 
 ```bash
-git clone https://github.com/vi-shub/gateshift.git
-cd gateshift
+git clone https://github.com/vi-shub/GateShift.git
+cd GateShift
 make tidy
 make test
 make build

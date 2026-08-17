@@ -86,7 +86,7 @@ changelog:
 release:
   github:
     owner: vi-shub
-    name: gateshift
+    name: GateShift
   draft: false
   prerelease: auto
   name_template: "GateShift {{.Version}}"
