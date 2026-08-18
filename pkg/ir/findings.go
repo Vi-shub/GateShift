@@ -25,6 +25,7 @@ const (
 	FindingIDQuirkURLNormalization  = "quirk.url-normalization"
 	FindingIDCanaryMerge            = "canary.merge"
 	FindingIDDualRun                = "dual-run.shadow"
+	FindingIDHTTPOnly               = "convert.http-only"
 )
 
 // Evidence pins a finding to source objects.

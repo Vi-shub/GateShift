@@ -87,3 +87,81 @@ func TestFromIngressAndEmitYAML(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPOnlySkipsTLSAndCertificates(t *testing.T) {
+	pathType := networkingv1.PathTypePrefix
+	ing := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "checkout",
+			Namespace: "shop",
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/ssl-redirect": "true",
+				"cert-manager.io/cluster-issuer":           "letsencrypt",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			TLS: []networkingv1.IngressTLS{{
+				Hosts:      []string{"checkout.example.com"},
+				SecretName: "checkout-tls",
+			}},
+			Rules: []networkingv1.IngressRule{{
+				Host: "checkout.example.com",
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{{
+							Path:     "/",
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: "checkout-svc",
+									Port: networkingv1.ServiceBackendPort{Number: 80},
+								},
+							},
+						}},
+					},
+				},
+			}},
+		},
+	}
+
+	bundle, err := FromIngress(ing, Options{
+		Provider:       ir.ProviderEnvoyGateway,
+		GatewayClass:   "envoy",
+		IncludeGateway: true,
+		HTTPOnly:       true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Certificates) != 0 {
+		t.Fatalf("expected no certificates, got %d", len(bundle.Certificates))
+	}
+	if len(bundle.Gateways) != 1 {
+		t.Fatalf("expected 1 gateway, got %d", len(bundle.Gateways))
+	}
+	listeners := bundle.Gateways[0].Listeners
+	if len(listeners) != 1 || listeners[0].Protocol != "HTTP" {
+		t.Fatalf("expected single HTTP listener, got %#v", listeners)
+	}
+	foundHTTPOnly := false
+	for _, f := range bundle.Findings {
+		if f.ID == ir.FindingIDHTTPOnly {
+			foundHTTPOnly = true
+			break
+		}
+	}
+	if !foundHTTPOnly {
+		t.Fatal("expected convert.http-only finding")
+	}
+
+	out, err := EmitYAML(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(out)
+	for _, bad := range []string{"kind: Certificate", "protocol: HTTPS", "checkout-tls", "scheme: https"} {
+		if strings.Contains(text, bad) {
+			t.Fatalf("http-only output unexpectedly contains %q\n%s", bad, text)
+		}
+	}
+}

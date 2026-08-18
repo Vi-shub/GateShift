@@ -19,7 +19,7 @@ This document describes how to verify GateShift locally and on a KinD cluster.
 
 ### Coverage gaps still open
 
-Still thin or missing: `internal/cli`, `internal/controller`, `pkg/cluster`, `pkg/gitops`, `pkg/audit`, `pkg/diff`. Full list: [ROADMAP.md §4](ROADMAP.md).
+Still thin or missing: `internal/cli`, `internal/controller`, `pkg/gitops`, `pkg/diff`. Full list: [ROADMAP.md §4](ROADMAP.md).
 
 ## Offline CLI (any OS)
 
@@ -118,11 +118,21 @@ curl -H 'Host: checkout.example.com' http://127.0.0.1:18080/api
 
 ### Live Ingress audit
 
-`audit --namespace` requires Ingress objects in-cluster (Gateway/HTTPRoute alone is not enough):
+`audit --namespace` (or `--all-namespaces` / `--selector`) requires Ingress objects in-cluster (Gateway/HTTPRoute alone is not enough):
 
 ```bash
 kubectl apply -f examples/ingress-checkout.yaml
 gateshift audit --namespace shop --target=envoy-gateway
+
+# Fleet batch: per-Ingress score table + combined matrix
+gateshift audit --all-namespaces --selector app=checkout --target=envoy-gateway
+```
+
+Lab convert without TLS secrets:
+
+```bash
+gateshift convert -f examples/ingress-checkout.yaml --target=envoy-gateway --http-only -o gateway-http.yaml
+gateshift dual-run --namespace shop --http-only --target=envoy-gateway -o dual-run.yaml
 ```
 
 ### Full e2e script

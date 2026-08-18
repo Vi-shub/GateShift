@@ -21,6 +21,7 @@ func newConvertCmd() *cobra.Command {
 		noGW               bool
 		preserveRegex      bool
 		trailingSlashRedir bool
+		httpOnly           bool
 	)
 	cmd := &cobra.Command{
 		Use:   "convert",
@@ -45,6 +46,7 @@ func newConvertCmd() *cobra.Command {
 				IncludeGateway:             !noGW,
 				PreserveNGINXRegex:         preserveRegex,
 				EmitTrailingSlashRedirects: trailingSlashRedir,
+				HTTPOnly:                   httpOnly,
 			}
 			combined, err := convert.FromIngresses(ingresses, opts)
 			if err != nil {
@@ -73,5 +75,6 @@ func newConvertCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&noGW, "no-gateway", false, "Emit HTTPRoute/policies only (attach to an existing Gateway)")
 	cmd.Flags().BoolVar(&preserveRegex, "preserve-nginx-regex", false, "Emit case-insensitive prefix RegularExpression matches for Ingress-NGINX regex-forced hosts")
 	cmd.Flags().BoolVar(&trailingSlashRedir, "emit-trailing-slash-redirects", false, "Emit 301 redirects for /path → /path/ (Ingress-NGINX trailing-slash behavior)")
+	cmd.Flags().BoolVar(&httpOnly, "http-only", false, "Emit HTTP listeners only (skip HTTPS, TLS secrets, Certificate docs)")
 	return cmd
 }

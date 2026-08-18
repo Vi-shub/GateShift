@@ -68,7 +68,7 @@ Make the current CLI trustworthy in labs and early production.
 | # | Work item | Code / files to add or change | Done when |
 |---|-----------|-------------------------------|-----------|
 | 0.1 | Dual-run KinD demo | `scripts/test-dual-run.sh` (and/or extend `scripts/demo-podinfo.sh`); wire step in `.github/workflows/smoke.yml` | Apply shadow YAML, curl staging Gateway, assert Ingress still present | **Done (Sprint A)** |
-| 0.2 | `--http-only` + TLS awareness | `pkg/convert/convert.go` (`Options`), emit listeners/certs; flags in `internal/cli/convert.go`, `dual_run.go` | Lab convert works without cert-manager secrets | Open |
+| 0.2 | `--http-only` + TLS awareness | `pkg/convert/convert.go` (`Options`), emit listeners/certs; flags in `internal/cli/convert.go`, `dual_run.go` | Lab convert works without cert-manager secrets | Done |
 | 0.3 | Helm NOTES + values docs | `charts/gateshift-operator/templates/NOTES.txt`, `charts/gateshift-operator/README.md` | Fresh install prints next steps | **Done (Sprint A)** |
 | 0.4 | README migration story | `README.md` short section: audit → dual-run → cutover | Linked from Quick start | **Done (Sprint A)** |
 | 0.5 | Scoreboard doc hygiene | Keep guide in `docs/SCOREBOARD.md`; CI writes `docs/scoreboard.md` only | Guide never overwritten by CI | Open (verify) |
@@ -83,9 +83,9 @@ Help teams migrate many Ingresses safely.
 
 | # | Work item | Code / files | Done when |
 |---|-----------|--------------|-----------|
-| 1.1 | Fleet list API | `pkg/cluster/client.go`: `AllNamespaces`, `LabelSelector` | Fake-client unit tests pass |
-| 1.2 | Batch `audit` | `internal/cli/audit.go`: `--all-namespaces`, `--selector`; `pkg/audit/fleet.go` report | Namespace score in one command |
-| 1.3 | Live / batch `dual-run` | `internal/cli/dual_run.go`: `--namespace` / `--selector` parity with audit | Shadow YAML for a label set |
+| 1.1 | Fleet list API | `pkg/cluster/client.go`: `AllNamespaces`, `LabelSelector` | Fake-client unit tests pass | Done |
+| 1.2 | Batch `audit` | `internal/cli/audit.go`: `--all-namespaces`, `--selector`; `pkg/audit/fleet.go` report | Namespace score in one command | Done |
+| 1.3 | Live / batch `dual-run` | `internal/cli/dual_run.go`: `--namespace` / `--selector` parity with audit | Shadow YAML for a label set | Done |
 | 1.4 | Optional RequestMirror helper | `pkg/convert/dualrun.go` + CLI `--request-mirror` | Shadow route can mirror when controller supports it |
 | 1.5 | ReferenceGrant emission | `pkg/ir/types.go` + `pkg/convert` emitter | Cross-ns parent/backend documented + tested |
 | 1.6 | Traefik adapters (L1 first) | `pkg/adapters/traefik/` + registry wire-up + corpus fixtures | Common Traefik keys → findings/filters |
@@ -207,16 +207,16 @@ Make in-cluster migration first-class.
 - [x] `docs/TESTING.md` dual-run section
 - [x] Helm `NOTES.txt` + chart README
 - [x] Helm lint in CI (`ci.yml` + `make helm-lint`)
-- [ ] `--http-only` convert flag (moved to next / Sprint D if deferred)
+- [x] `--http-only` convert flag
 
-**Phase 0 remaining:** `--http-only`, signed operator images, scoreboard refresh after adapter changes.
+**Phase 0 remaining:** signed operator images, scoreboard refresh after adapter changes.
 
 ### Sprint B (Fleet MVP) — Phase 1 start
 
-- [ ] `pkg/cluster` selector / all-namespaces
-- [ ] `audit --selector` / `--all-namespaces` + fleet report
-- [ ] `dual-run --namespace` / `--selector`
-- [ ] Cluster + audit fleet unit tests
+- [x] `pkg/cluster` selector / all-namespaces
+- [x] `audit --selector` / `--all-namespaces` + fleet report
+- [x] `dual-run --namespace` / `--selector`
+- [x] Cluster + audit fleet unit tests
 
 ### Sprint C (Operator DualRun) — Phase 2 start
 
@@ -228,7 +228,7 @@ Make in-cluster migration first-class.
 ### Sprint D (Breadth)
 
 - [ ] Traefik L1 adapters + fixtures
-- [ ] `--http-only` if not done earlier
+- [x] `--http-only` (done in Sprint A/B)
 - [ ] Promote top `[??]` keys from `CORPUS_GAPS.md`
 - [ ] Refresh `docs/scoreboard.md`
 
@@ -245,6 +245,8 @@ Make in-cluster migration first-class.
 - `gateshift dual-run` staging Gateway + shadow HTTPRoute (unit-tested)
 - GoReleaser, install script (`vi-shub/gateshift`), convert KinD smoke
 - Operator / CRD / Helm scaffold; GitOps dry-run + GitHub PR helper
+- `--http-only` for lab converts (no HTTPS / certs / HTTPS redirects)
+- Fleet audit + dual-run: `--all-namespaces` / `--selector` + fleet summary report
 
 ---
 
@@ -268,7 +270,7 @@ GateShift wins on **annotation fidelity + honest findings + dual-run**.
 | IR schema | `gateshift.ir/v1` stable | Met |
 | Convert KinD smoke | Green on PR | Met |
 | Dual-run KinD demo | Green on PR | **Met (Sprint A script + smoke job)** |
-| Fleet batch audit | One command per namespace/selector | **Not met** (Phase 1) |
+| Fleet batch audit | One command per namespace/selector | **Met** (Sprint B) |
 | Operator DualRun | Shadow applied + conditions | **Not met** (Phase 2) |
 | Helm NOTES | Present | **Met (Sprint A)** |
 | Homebrew / Scoop | Published | **Not met** (Phase 3) |

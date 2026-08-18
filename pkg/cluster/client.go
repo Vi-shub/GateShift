@@ -20,6 +20,14 @@ type Options struct {
 	Context    string
 }
 
+// ListOptions filters Ingress listing.
+type ListOptions struct {
+	// Namespace restricts the list. Empty means all namespaces.
+	Namespace string
+	// LabelSelector is a standard Kubernetes label selector (e.g. "app=shop").
+	LabelSelector string
+}
+
 // Client wraps a typed kubernetes clientset.
 type Client struct {
 	cs kubernetes.Interface
@@ -36,6 +44,11 @@ func New(opts Options) (*Client, error) {
 		return nil, fmt.Errorf("create clientset: %w", err)
 	}
 	return &Client{cs: cs}, nil
+}
+
+// NewFromClientset builds a Client around an existing clientset (tests / fakes).
+func NewFromClientset(cs kubernetes.Interface) *Client {
+	return &Client{cs: cs}
 }
 
 func restConfig(opts Options) (*rest.Config, error) {
@@ -65,13 +78,15 @@ func restConfig(opts Options) (*rest.Config, error) {
 	return inCluster, nil
 }
 
-// ListIngresses returns Ingress objects for a namespace (or all namespaces when empty).
-func (c *Client) ListIngresses(ctx context.Context, namespace string) ([]*networkingv1.Ingress, error) {
-	ns := namespace
+// ListIngresses returns Ingress objects matching ListOptions.
+func (c *Client) ListIngresses(ctx context.Context, opts ListOptions) ([]*networkingv1.Ingress, error) {
+	ns := opts.Namespace
 	if ns == "" {
 		ns = metav1.NamespaceAll
 	}
-	list, err := c.cs.NetworkingV1().Ingresses(ns).List(ctx, metav1.ListOptions{})
+	list, err := c.cs.NetworkingV1().Ingresses(ns).List(ctx, metav1.ListOptions{
+		LabelSelector: opts.LabelSelector,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list ingresses: %w", err)
 	}

@@ -30,6 +30,9 @@ type Options struct {
 	// EmitTrailingSlashRedirects adds 301 redirects from /path → /path/ where
 	// Ingress-NGINX would auto-redirect.
 	EmitTrailingSlashRedirects bool
+	// HTTPOnly emits HTTP listeners only: skips HTTPS listeners, TLS secrets,
+	// Certificate docs, and HTTPS redirect filters (useful for lab clusters).
+	HTTPOnly bool
 
 	// quirkHostRegex is set by FromIngresses after multi-Ingress analysis.
 	quirkHostRegex map[string]bool
@@ -82,12 +85,24 @@ func fromIngressRaw(ing *networkingv1.Ingress, opts Options) (*ir.MigrationBundl
 	)
 
 	hostnames := collectHostnames(ing)
-	if ann.SSLPassthrough && ann.TLS != nil {
+	if opts.HTTPOnly {
+		ann.TLS = nil
+		ann.SSLPassthrough = false
+		ann.Filters = stripHTTPSRedirectFilters(ann.Filters)
+		bundle.Certificates = nil
+		bundle.Findings = append(bundle.Findings,
+			ir.NewFinding(ir.FindingIDHTTPOnly, ir.StatusDirect, 1, "gateshift.io/http-only",
+				"HTTP-only mode: skipped HTTPS listeners, TLS secrets, Certificate docs, and HTTPS redirect filters").
+				WithTarget("Gateway listeners / Certificates").
+				WithEvidence(ir.Evidence{IngressName: ing.Name, Namespace: ns}).
+				WithFix("--http-only"),
+		)
+	} else if ann.SSLPassthrough && ann.TLS != nil {
 		ann.TLS.Mode = "Passthrough"
 	} else if ann.SSLPassthrough {
 		ann.TLS = &ir.TLSIR{Mode: "Passthrough"}
 	}
-	listeners := buildListeners(ing, hostnames, ann.TLS, ann.SSLPassthrough)
+	listeners := buildListeners(ing, hostnames, ann.TLS, ann.SSLPassthrough, opts.HTTPOnly)
 	if opts.IncludeGateway {
 		bundle.Gateways = append(bundle.Gateways, ir.GatewayIR{
 			Name:      gwName,
@@ -339,7 +354,20 @@ func collectHostnames(ing *networkingv1.Ingress) []string {
 	return hosts
 }
 
-func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR, passthrough bool) []ir.ListenerIR {
+func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR, passthrough, httpOnly bool) []ir.ListenerIR {
+	host := ""
+	if len(hostnames) > 0 {
+		host = hostnames[0]
+	}
+	if httpOnly {
+		return []ir.ListenerIR{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     80,
+			Hostname: host,
+		}}
+	}
+
 	hasTLS := len(ing.Spec.TLS) > 0 || tls != nil || passthrough
 	tlsMode := "Terminate"
 	if passthrough || (tls != nil && strings.EqualFold(tls.Mode, "Passthrough")) {
@@ -347,10 +375,6 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 	}
 	var listeners []ir.ListenerIR
 	if !hasTLS {
-		host := ""
-		if len(hostnames) > 0 {
-			host = hostnames[0]
-		}
 		listeners = append(listeners, ir.ListenerIR{
 			Name:     "http",
 			Protocol: "HTTP",
@@ -367,10 +391,6 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 		Port:     80,
 	})
 	if len(ing.Spec.TLS) == 0 {
-		host := ""
-		if len(hostnames) > 0 {
-			host = hostnames[0]
-		}
 		secret := ""
 		if tls != nil && tlsMode != "Passthrough" {
 			secret = tls.SecretName
@@ -385,11 +405,11 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 		return listeners
 	}
 	for i, t := range ing.Spec.TLS {
-		host := ""
+		h := ""
 		if len(t.Hosts) > 0 {
-			host = t.Hosts[0]
+			h = t.Hosts[0]
 		} else if len(hostnames) > 0 {
-			host = hostnames[0]
+			h = hostnames[0]
 		}
 		name := fmt.Sprintf("https-%d", i)
 		secret := t.SecretName
@@ -400,7 +420,7 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 			Name:     name,
 			Protocol: "HTTPS",
 			Port:     443,
-			Hostname: host,
+			Hostname: h,
 			TLS: &ir.TLSIR{
 				SecretName: secret,
 				Mode:       tlsMode,
@@ -408,6 +428,17 @@ func buildListeners(ing *networkingv1.Ingress, hostnames []string, tls *ir.TLSIR
 		})
 	}
 	return listeners
+}
+
+func stripHTTPSRedirectFilters(filters []ir.FilterIR) []ir.FilterIR {
+	out := make([]ir.FilterIR, 0, len(filters))
+	for _, f := range filters {
+		if f.Kind == ir.FilterRequestRedirect && f.RedirectScheme != nil && strings.EqualFold(*f.RedirectScheme, "https") {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 // EmitYAML renders a MigrationBundle as multi-document YAML.

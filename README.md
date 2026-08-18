@@ -97,6 +97,9 @@ gateshift convert -f examples/ingress-checkout.yaml --target=envoy-gateway -o ga
 # Dual-run: staging Gateway + shadow HTTPRoute; Ingress stays live
 gateshift dual-run -f examples/ingress-checkout.yaml --target=envoy-gateway -o dual-run.yaml
 
+# Lab clusters without certs: HTTP listeners only
+gateshift convert -f examples/ingress-checkout.yaml --target=envoy-gateway --http-only -o gateway-http.yaml
+
 # Fail closed on untranslatable features
 gateshift validate -f examples/ingress-checkout.yaml --target=envoy-gateway
 
@@ -119,10 +122,12 @@ gateshift convert -f examples/corpus/blog-k8s-2026-02/04-trailing-slash.yaml \
   --target=envoy-gateway --emit-trailing-slash-redirects -o gateway.yaml
 ```
 
-Live cluster:
+Live cluster / fleet:
 
 ```bash
 gateshift audit --namespace shop --target=envoy-gateway
+gateshift audit --all-namespaces --selector team=checkout --target=envoy-gateway
+gateshift dual-run --namespace shop --selector app=checkout --target=envoy-gateway --http-only -o dual-run.yaml
 ```
 
 **Targets:** `standard` · `envoy-gateway` · `cilium` · `istio` · `kong`
