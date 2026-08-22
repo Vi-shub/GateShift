@@ -247,6 +247,7 @@ Make in-cluster migration first-class.
 - Operator / CRD / Helm scaffold; GitOps dry-run + GitHub PR helper
 - `--http-only` for lab converts (no HTTPS / certs / HTTPS redirects)
 - Fleet audit + dual-run: `--all-namespaces` / `--selector` + fleet summary report
+- Envoy Gateway emit sanitizer (EG 1.2+ portable BackendTrafficPolicy / SecurityPolicy)
 
 ---
 

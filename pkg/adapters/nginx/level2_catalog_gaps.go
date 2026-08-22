@@ -19,6 +19,13 @@ func (AccessLogAdapter) CanHandle(key string) bool {
 
 func (AccessLogAdapter) Transform(key, value string, ctx *adapters.Context) error {
 	enabled := isTruthy(value)
+	if ctx.Provider == ir.ProviderEnvoyGateway {
+		// Access logging is configured on EnvoyProxy, not a portable ClientTrafficPolicy toggle.
+		ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+			"ClientTrafficPolicy / access logging",
+			"enable-access-log requires EnvoyProxy telemetry.accessLog settings (manual); not emitted as a Policy CR")
+		return nil
+	}
 	pol := ir.PolicyIR{
 		Kind:      ir.PolicyBackendTuning,
 		Name:      ctx.Meta.IngressName + "-accesslog",
@@ -30,15 +37,6 @@ func (AccessLogAdapter) Transform(key, value string, ctx *adapters.Context) erro
 			"kind":       "AccessLogPolicy",
 			"enabled":    enabled,
 		},
-	}
-	if ctx.Provider == ir.ProviderEnvoyGateway {
-		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
-		pol.Spec["kind"] = "ClientTrafficPolicy"
-		pol.Spec["telemetry"] = map[string]any{
-			"accessLog": map[string]any{
-				"disable": !enabled,
-			},
-		}
 	}
 	ctx.Policies = append(ctx.Policies, pol)
 	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
@@ -72,11 +70,11 @@ func (CustomHTTPErrorsAdapter) Transform(key, value string, ctx *adapters.Contex
 		},
 	}
 	if ctx.Provider == ir.ProviderEnvoyGateway {
-		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
-		pol.Spec["kind"] = "BackendTrafficPolicy"
-		pol.Spec["healthCheck"] = map[string]any{
-			"note": "Use Envoy custom response / ext_proc or dedicated error page route for codes: " + strings.Join(codes, ","),
-		}
+		// Avoid emitting invalid BackendTrafficPolicy shapes; keep the finding for manual responseOverride.
+		ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
+			"Custom error pages / BackendTrafficPolicy",
+			fmt.Sprintf("custom-http-errors (%s) require Envoy Gateway responseOverride / dedicated error routes (manual)", strings.Join(codes, ",")))
+		return nil
 	}
 	ctx.Policies = append(ctx.Policies, pol)
 	ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
@@ -168,11 +166,13 @@ func (BasicAuthAdapter) Transform(key, value string, ctx *adapters.Context) erro
 		},
 	}
 	if ctx.Provider == ir.ProviderEnvoyGateway {
-		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
-		pol.Spec["kind"] = "SecurityPolicy"
-		pol.Spec["basicAuth"] = map[string]any{
-			"users": map[string]any{
-				"name": secret,
+		pol.Spec = map[string]any{
+			"apiVersion": "gateway.envoyproxy.io/v1alpha1",
+			"kind":       "SecurityPolicy",
+			"basicAuth": map[string]any{
+				"users": map[string]any{
+					"name": secret,
+				},
 			},
 		}
 	}

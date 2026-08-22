@@ -267,6 +267,7 @@ Logo/                      Project brand asset
 | Doc | Description |
 |-----|-------------|
 | [docs/COMPARE.md](docs/COMPARE.md) | Related tools + provider matrix |
+| [docs/EG_COMPAT.md](docs/EG_COMPAT.md) | Envoy Gateway apply compatibility (EG 1.2+) |
 | [docs/SCOREBOARD.md](docs/SCOREBOARD.md) | How to read the corpus scoreboard |
 | [docs/scoreboard.md](docs/scoreboard.md) | Generated corpus scoreboard snapshot |
 | [docs/CORPUS_GAPS.md](docs/CORPUS_GAPS.md) | Uncatalogued annotation candidates from corpus |

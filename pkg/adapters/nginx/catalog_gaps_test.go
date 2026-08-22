@@ -41,7 +41,25 @@ func TestGapAdaptersTranslate(t *testing.T) {
 			t.Fatalf("unexpected L3 for catalog gap key %s: %s", f.Key, f.Message)
 		}
 	}
-	if len(res.Policies) < 3 {
-		t.Fatalf("expected multiple policies from gap adapters, got %d", len(res.Policies))
+	// EG path: backend tuning + basicAuth policies. access-log / custom-http-errors stay findings-only
+	// (no invalid ClientTrafficPolicy / BackendTrafficPolicy shapes).
+	if len(res.Policies) < 2 {
+		t.Fatalf("expected backend + basicAuth policies from gap adapters, got %d", len(res.Policies))
+	}
+	kinds := map[string]bool{}
+	for _, p := range res.Policies {
+		if k, ok := p.Spec["kind"].(string); ok {
+			kinds[k] = true
+		}
+	}
+	if !kinds["BackendTrafficPolicy"] || !kinds["SecurityPolicy"] {
+		t.Fatalf("expected BackendTrafficPolicy + SecurityPolicy, got %#v", kinds)
+	}
+	for _, p := range res.Policies {
+		for _, bad := range []string{"enabled", "note", "statusCodes", "authType", "secretName"} {
+			if _, ok := p.Spec[bad]; ok {
+				t.Fatalf("IR field %q leaked into EG policy %#v", bad, p.Spec)
+			}
+		}
 	}
 }

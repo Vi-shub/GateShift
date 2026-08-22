@@ -20,12 +20,23 @@ func TestAffinityConsumesCookieFamily(t *testing.T) {
 	if len(res.Policies) != 1 {
 		t.Fatalf("expected 1 affinity policy, got %d", len(res.Policies))
 	}
-	sp, ok := res.Policies[0].Spec["sessionPersistence"].(map[string]any)
+	sp, ok := res.Policies[0].Spec["loadBalancer"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected sessionPersistence for envoy-gateway, got %#v", res.Policies[0].Spec)
+		t.Fatalf("expected loadBalancer for envoy-gateway, got %#v", res.Policies[0].Spec)
 	}
-	if sp["absoluteTimeout"] != "172800s" {
-		t.Fatalf("expected timeout from max-age, got %#v", sp["absoluteTimeout"])
+	ch, ok := sp["consistentHash"].(map[string]any)
+	if !ok || ch["type"] != "Cookie" {
+		t.Fatalf("expected ConsistentHash Cookie, got %#v", sp)
+	}
+	cookie, ok := ch["cookie"].(map[string]any)
+	if !ok || cookie["name"] != "route" || cookie["ttl"] != "172800s" {
+		t.Fatalf("expected cookie name/ttl, got %#v", cookie)
+	}
+	// Must not leak IR-only fields into BackendTrafficPolicy.
+	for _, bad := range []string{"affinity", "cookieName", "featureGate", "sessionPersistence", "cookieMaxAge"} {
+		if _, exists := res.Policies[0].Spec[bad]; exists {
+			t.Fatalf("unexpected IR field %q in EG policy spec: %#v", bad, res.Policies[0].Spec)
+		}
 	}
 	for _, f := range res.Findings {
 		if f.Status == ir.StatusUntranslatable {

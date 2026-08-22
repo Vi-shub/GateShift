@@ -144,30 +144,40 @@ func (AffinityAdapter) Transform(key, value string, ctx *adapters.Context) error
 	}
 
 	if ctx.Provider == ir.ProviderEnvoyGateway {
-		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
-		pol.Spec["kind"] = "BackendTrafficPolicy"
-		session := map[string]any{
-			"sessionName":     cookie,
-			"type":            "Cookie",
-			"absoluteTimeout": timeout,
+		// Envoy Gateway BackendTrafficPolicy has no sessionPersistence field.
+		// Cookie stickiness maps to loadBalancer.consistentHash (EG v1.2+).
+		cookieSpec := map[string]any{
+			"name": cookie,
+			"ttl":  timeout,
 		}
-		cookieCfg := map[string]any{}
+		attrs := map[string]string{}
 		if sameSite != "" {
-			cookieCfg["sameSite"] = sameSite
+			attrs["SameSite"] = sameSite
 		}
 		if secure != "" {
-			cookieCfg["secure"] = isTruthy(secure)
+			if isTruthy(secure) {
+				attrs["Secure"] = "true"
+			} else {
+				attrs["Secure"] = "false"
+			}
 		}
 		if path != "" {
-			cookieCfg["path"] = path
+			attrs["Path"] = path
 		}
-		if len(cookieCfg) > 0 {
-			session["cookieConfig"] = cookieCfg
+		if len(attrs) > 0 {
+			cookieSpec["attributes"] = attrs
 		}
-		if conditionalNone != "" {
-			session["conditionalSameSiteNone"] = isTruthy(conditionalNone)
+		pol.Spec = map[string]any{
+			"apiVersion": "gateway.envoyproxy.io/v1alpha1",
+			"kind":       "BackendTrafficPolicy",
+			"loadBalancer": map[string]any{
+				"type": "ConsistentHash",
+				"consistentHash": map[string]any{
+					"type":   "Cookie",
+					"cookie": cookieSpec,
+				},
+			},
 		}
-		pol.Spec["sessionPersistence"] = session
 	}
 
 	ctx.Policies = append(ctx.Policies, pol)
@@ -221,15 +231,18 @@ func (IPAllowAdapter) Transform(key, value string, ctx *adapters.Context) error 
 	}
 	switch ctx.Provider {
 	case ir.ProviderEnvoyGateway:
-		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
-		pol.Spec["kind"] = "SecurityPolicy"
-		pol.Spec["authorization"] = map[string]any{
-			"defaultAction": defaultAction,
-			"rules": []any{
-				map[string]any{
-					"action": action,
-					"principal": map[string]any{
-						"clientCIDRs": cidrs,
+		// Only emit CRD-valid SecurityPolicy fields (do not leak action/cidrs IR keys).
+		pol.Spec = map[string]any{
+			"apiVersion": "gateway.envoyproxy.io/v1alpha1",
+			"kind":       "SecurityPolicy",
+			"authorization": map[string]any{
+				"defaultAction": defaultAction,
+				"rules": []any{
+					map[string]any{
+						"action": action,
+						"principal": map[string]any{
+							"clientCIDRs": cidrs,
+						},
 					},
 				},
 			},
@@ -286,36 +299,66 @@ func (TimeoutBodyAdapter) Transform(key, value string, ctx *adapters.Context) er
 			"kind":       "BackendTrafficPolicy",
 		},
 	}
-	if ctx.Provider == ir.ProviderEnvoyGateway {
-		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
-		pol.Spec["kind"] = "BackendTrafficPolicy"
-	}
 
-	if v := ctx.Annotations[AnnProxyBodySize]; v != "" {
-		pol.Spec["maxRequestBodySize"] = v
-	}
-	if v := ctx.Annotations[AnnProxyReadTimeout]; v != "" {
-		pol.Spec["readTimeout"] = v + "s"
-	}
-	if v := ctx.Annotations[AnnProxySendTimeout]; v != "" {
-		pol.Spec["sendTimeout"] = v + "s"
-	}
-	if v := ctx.Annotations[AnnProxyConnectTimeout]; v != "" {
-		pol.Spec["connectTimeout"] = v + "s"
-	}
-	if v := ctx.Annotations[AnnBackendProtocol]; v != "" {
-		pol.Spec["backendProtocol"] = v
-	}
-	if v := ctx.Annotations[AnnProxyBuffering]; v != "" {
-		pol.Spec["buffering"] = map[string]any{"enabled": isTruthy(v)}
-	}
-	if v := ctx.Annotations[AnnClientBodyBufferSize]; v != "" {
-		pol.Spec["clientBodyBufferSize"] = v
-	}
-	if v := ctx.Annotations[AnnProxyNextUpstream]; v != "" {
-		pol.Spec["retry"] = map[string]any{
-			"nextUpstream": v,
-			"note":         "Mapped from proxy-next-upstream; verify Envoy retryOn equivalents",
+	if ctx.Provider == ir.ProviderEnvoyGateway {
+		// Emit only fields valid on gateway.envoyproxy.io/v1alpha1 BackendTrafficPolicy.
+		pol.Spec = map[string]any{
+			"apiVersion": "gateway.envoyproxy.io/v1alpha1",
+			"kind":       "BackendTrafficPolicy",
+		}
+		timeout := map[string]any{}
+		httpTO := map[string]any{}
+		tcpTO := map[string]any{}
+		if v := ctx.Annotations[AnnProxyReadTimeout]; v != "" {
+			httpTO["requestTimeout"] = v + "s"
+		} else if v := ctx.Annotations[AnnProxySendTimeout]; v != "" {
+			httpTO["requestTimeout"] = v + "s"
+		}
+		if v := ctx.Annotations[AnnProxyConnectTimeout]; v != "" {
+			tcpTO["connectTimeout"] = v + "s"
+		}
+		if len(httpTO) > 0 {
+			timeout["http"] = httpTO
+		}
+		if len(tcpTO) > 0 {
+			timeout["tcp"] = tcpTO
+		}
+		if len(timeout) > 0 {
+			pol.Spec["timeout"] = timeout
+		}
+		if v := ctx.Annotations[AnnProxyBodySize]; v != "" {
+			pol.Spec["connection"] = map[string]any{
+				"bufferLimit": normalizeKubeQuantity(v),
+			}
+		}
+		// Buffering / next-upstream / backend-protocol: keep as findings only (no portable EG fields).
+	} else {
+		if v := ctx.Annotations[AnnProxyBodySize]; v != "" {
+			pol.Spec["maxRequestBodySize"] = v
+		}
+		if v := ctx.Annotations[AnnProxyReadTimeout]; v != "" {
+			pol.Spec["readTimeout"] = v + "s"
+		}
+		if v := ctx.Annotations[AnnProxySendTimeout]; v != "" {
+			pol.Spec["sendTimeout"] = v + "s"
+		}
+		if v := ctx.Annotations[AnnProxyConnectTimeout]; v != "" {
+			pol.Spec["connectTimeout"] = v + "s"
+		}
+		if v := ctx.Annotations[AnnBackendProtocol]; v != "" {
+			pol.Spec["backendProtocol"] = v
+		}
+		if v := ctx.Annotations[AnnProxyBuffering]; v != "" {
+			pol.Spec["buffering"] = map[string]any{"enabled": isTruthy(v)}
+		}
+		if v := ctx.Annotations[AnnClientBodyBufferSize]; v != "" {
+			pol.Spec["clientBodyBufferSize"] = v
+		}
+		if v := ctx.Annotations[AnnProxyNextUpstream]; v != "" {
+			pol.Spec["retry"] = map[string]any{
+				"nextUpstream": v,
+				"note":         "Mapped from proxy-next-upstream; verify Envoy retryOn equivalents",
+			}
 		}
 	}
 
@@ -329,6 +372,28 @@ func (TimeoutBodyAdapter) Transform(key, value string, ctx *adapters.Context) er
 	}
 	ctx.Claim(proxyTuningKeys()...)
 	return nil
+}
+
+// normalizeKubeQuantity maps nginx-style sizes (8m, 1k) to Kubernetes Quantity strings.
+func normalizeKubeQuantity(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return v
+	}
+	lower := strings.ToLower(v)
+	switch {
+	case strings.HasSuffix(lower, "mi"), strings.HasSuffix(lower, "gi"),
+		strings.HasSuffix(lower, "ki"), strings.HasSuffix(lower, "ti"):
+		return v
+	case strings.HasSuffix(lower, "m"):
+		return strings.TrimSuffix(strings.TrimSuffix(v, "m"), "M") + "Mi"
+	case strings.HasSuffix(lower, "g"):
+		return strings.TrimSuffix(strings.TrimSuffix(v, "g"), "G") + "Gi"
+	case strings.HasSuffix(lower, "k"):
+		return strings.TrimSuffix(strings.TrimSuffix(v, "k"), "K") + "Ki"
+	default:
+		return v
+	}
 }
 
 // CanaryAdapter maps canary annotations → Level 2 weighted backend / header match notes.

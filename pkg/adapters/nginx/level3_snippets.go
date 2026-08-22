@@ -74,33 +74,10 @@ func (AuthAdapter) Transform(key, value string, ctx *adapters.Context) error {
 		return nil
 	}
 	if ctx.Provider == ir.ProviderEnvoyGateway && (key == AnnAuthURL || key == AnnAuthSignin) {
-		uri := ctx.Annotations[AnnAuthURL]
-		if uri == "" {
-			uri = value
-		}
-		pol := ir.PolicyIR{
-			Kind:      ir.PolicyKind("ExtAuth"),
-			Name:      ctx.Meta.IngressName + "-extauth",
-			Namespace: ctx.Meta.Namespace,
-			Provider:  ctx.Provider,
-			TargetRef: ir.ParentRefIR{Name: ctx.Meta.IngressName, Namespace: ctx.Meta.Namespace},
-			Spec: map[string]any{
-				"apiVersion": "gateway.envoyproxy.io/v1alpha1",
-				"kind":       "SecurityPolicy",
-				"extAuth": map[string]any{
-					"http": map[string]any{
-						"backendRefs": []any{},
-						"uri":         uri,
-					},
-				},
-				"signin": ctx.Annotations[AnnAuthSignin],
-				"note":   "Populate backendRefs to your auth service; GateShift only scaffolds the SecurityPolicy",
-			},
-		}
-		ctx.Policies = append(ctx.Policies, pol)
+		// ExtAuth requires real backendRefs; do not emit an empty SecurityPolicy that fails apply.
 		ctx.AddFinding(key, value, ir.StatusRequiresPolicy, adapters.Level2,
 			"SecurityPolicy.extAuth",
-			"auth-url/signin scaffolded as Envoy Gateway SecurityPolicy — complete backendRefs manually")
+			"auth-url/signin needs a SecurityPolicy.extAuth with backendRefs to your auth service (manual)")
 		ctx.Claim(AnnAuthURL, AnnAuthSignin)
 		return nil
 	}

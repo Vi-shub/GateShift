@@ -450,7 +450,7 @@ func EmitYAML(bundle *ir.MigrationBundle) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		b, err := yaml.Marshal(obj)
+		b, err := marshalApplyYAML(obj)
 		if err != nil {
 			return nil, err
 		}
@@ -461,14 +461,17 @@ func EmitYAML(bundle *ir.MigrationBundle) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		b, err := yaml.Marshal(obj)
+		b, err := marshalApplyYAML(obj)
 		if err != nil {
 			return nil, err
 		}
 		docs = append(docs, strings.TrimSpace(string(b)))
 	}
 	for _, pol := range bundle.Policies {
-		obj := toPolicyUnstructured(pol)
+		obj, ok := toPolicyUnstructured(pol)
+		if !ok {
+			continue
+		}
 		b, err := yaml.Marshal(obj)
 		if err != nil {
 			return nil, err
@@ -689,7 +692,7 @@ func toHTTPRouteFilter(f ir.FilterIR) (gatewayv1.HTTPRouteFilter, bool) {
 	}
 }
 
-func toPolicyUnstructured(pol ir.PolicyIR) map[string]any {
+func toPolicyUnstructured(pol ir.PolicyIR) (map[string]any, bool) {
 	apiVersion, _ := pol.Spec["apiVersion"].(string)
 	kind, _ := pol.Spec["kind"].(string)
 	if apiVersion == "" {
@@ -705,12 +708,33 @@ func toPolicyUnstructured(pol ir.PolicyIR) map[string]any {
 		}
 		spec[k] = v
 	}
-	spec["targetRef"] = map[string]any{
-		"group":     "gateway.networking.k8s.io",
-		"kind":      "HTTPRoute",
-		"name":      pol.TargetRef.Name,
-		"namespace": pol.TargetRef.Namespace,
+
+	targetKind := "HTTPRoute"
+	if kind == "ClientTrafficPolicy" {
+		targetKind = "Gateway"
 	}
+	target := map[string]any{
+		"group": "gateway.networking.k8s.io",
+		"kind":  targetKind,
+		"name":  pol.TargetRef.Name,
+	}
+
+	if isEnvoyGatewayAPI(apiVersion) {
+		// LocalPolicyTargetReference: same namespace only, never emit namespace.
+		spec["targetRefs"] = []any{target}
+		delete(spec, "targetRef")
+		clean, ok := sanitizeEnvoyGatewayPolicySpec(kind, spec)
+		if !ok {
+			return nil, false
+		}
+		spec = clean
+	} else {
+		if pol.TargetRef.Namespace != "" {
+			target["namespace"] = pol.TargetRef.Namespace
+		}
+		spec["targetRef"] = target
+	}
+
 	return map[string]any{
 		"apiVersion": apiVersion,
 		"kind":       kind,
@@ -723,7 +747,24 @@ func toPolicyUnstructured(pol ir.PolicyIR) map[string]any {
 			},
 		},
 		"spec": spec,
+	}, true
+}
+
+// marshalApplyYAML strips empty status / creationTimestamp so kubectl apply stays clean.
+func marshalApplyYAML(obj any) ([]byte, error) {
+	b, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
 	}
+	var m map[string]any
+	if err := yaml.Unmarshal(b, &m); err != nil {
+		return b, nil
+	}
+	delete(m, "status")
+	if meta, ok := m["metadata"].(map[string]any); ok {
+		delete(meta, "creationTimestamp")
+	}
+	return yaml.Marshal(m)
 }
 
 func toCertificate(cert ir.CertificateIR) map[string]any {

@@ -26,8 +26,15 @@ if ($http_user_agent ~* "bad-bot") { return 403; }
 	if len(res.Filters) == 0 {
 		t.Fatal("expected header filter promotion")
 	}
-	if len(res.Policies) == 0 {
-		t.Fatal("expected UA deny policy scaffold")
+	foundUA := false
+	for _, m := range res.Matches {
+		if m.ID == "ua-deny" && m.Residual {
+			foundUA = true
+			break
+		}
+	}
+	if !foundUA {
+		t.Fatal("expected residual UA deny match for Envoy Gateway (no invalid SecurityPolicy emit)")
 	}
 }
 

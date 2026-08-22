@@ -97,36 +97,42 @@ func AnalyzeSnippet(snippet string, provider ir.Provider, metaName, metaNS strin
 		})
 	}
 
-	// 3) UA deny if-block → SecurityPolicy scaffold (L2)
+	// 3) UA deny if-block → residual scaffold (no invalid EG SecurityPolicy)
 	if m := reIfUADeny.FindStringSubmatch(working); len(m) == 2 {
-		pol := ir.PolicyIR{
-			Kind:      ir.PolicyIPFilter, // reuse security-ish bucket; Spec carries UA rule
-			Name:      metaName + "-ua-deny",
-			Namespace: metaNS,
-			Provider:  provider,
-			TargetRef: ir.ParentRefIR{Name: metaName, Namespace: metaNS},
-			Spec: map[string]any{
-				"apiVersion": "gateshift.io/v1alpha1",
-				"kind":       "UserAgentDenyPolicy",
-				"pattern":    m[1],
-				"action":     "Deny",
-				"note":       "Scaffold — map to Envoy SecurityPolicy/WASM or controller-specific UA filter",
-			},
-		}
 		if provider == ir.ProviderEnvoyGateway {
-			pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
-			pol.Spec["kind"] = "SecurityPolicy"
+			res.Matches = append(res.Matches, Match{
+				ID:          "ua-deny",
+				Description: "if ($http_user_agent) return 403 — complete as SecurityPolicy/WASM manually",
+				Confidence:  0.75,
+				Residual:    true,
+			})
+			res.Hints = append(res.Hints, fmt.Sprintf("UA deny pattern %q needs a SecurityPolicy/WASM rule (not auto-emitted for Envoy Gateway)", m[1]))
+		} else {
+			pol := ir.PolicyIR{
+				Kind:      ir.PolicyIPFilter,
+				Name:      metaName + "-ua-deny",
+				Namespace: metaNS,
+				Provider:  provider,
+				TargetRef: ir.ParentRefIR{Name: metaName, Namespace: metaNS},
+				Spec: map[string]any{
+					"apiVersion": "gateshift.io/v1alpha1",
+					"kind":       "UserAgentDenyPolicy",
+					"pattern":    m[1],
+					"action":     "Deny",
+					"note":       "Scaffold — map to Envoy SecurityPolicy/WASM or controller-specific UA filter",
+				},
+			}
+			res.Policies = append(res.Policies, pol)
+			res.Matches = append(res.Matches, Match{
+				ID:          "ua-deny",
+				Description: "if ($http_user_agent) return 403",
+				Confidence:  0.75,
+				Policies:    []ir.PolicyIR{pol},
+				Residual:    true,
+			})
+			res.Hints = append(res.Hints, fmt.Sprintf("UA deny pattern %q promoted to SecurityPolicy scaffold", m[1]))
 		}
-		res.Policies = append(res.Policies, pol)
-		res.Matches = append(res.Matches, Match{
-			ID:          "ua-deny",
-			Description: "if ($http_user_agent) return 403",
-			Confidence:  0.75,
-			Policies:    []ir.PolicyIR{pol},
-			Residual:    true, // needs human to finish provider binding
-		})
 		working = strings.Replace(working, m[0], "", 1)
-		res.Hints = append(res.Hints, fmt.Sprintf("UA deny pattern %q promoted to SecurityPolicy scaffold", m[1]))
 	}
 
 	// 4) bare return N → RequestRedirect/DirectResponse hint as filter redirect only for 301/302

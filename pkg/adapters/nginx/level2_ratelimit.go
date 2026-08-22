@@ -49,10 +49,10 @@ func (RateLimitAdapter) Transform(key, value string, ctx *adapters.Context) erro
 		pol.Spec["apiVersion"] = "gateway.envoyproxy.io/v1alpha1"
 		pol.Spec["kind"] = "BackendTrafficPolicy"
 		pol.Spec["rateLimit"] = map[string]any{
+			"type": "Local",
 			"local": map[string]any{
 				"rules": []any{
 					map[string]any{
-						"clientSelectors": []any{map[string]any{}},
 						"limit": map[string]any{
 							"requests": requests,
 							"unit":     unit,

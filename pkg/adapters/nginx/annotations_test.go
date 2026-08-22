@@ -37,6 +37,9 @@ func TestTranslateLimitRPSRequiresPolicy(t *testing.T) {
 	if rl["local"] == nil {
 		t.Fatalf("expected local rateLimit rules, got %#v", rl)
 	}
+	if rl["type"] != "Local" {
+		t.Fatalf("expected rateLimit.type=Local, got %#v", rl["type"])
+	}
 }
 
 func TestTranslateSnippetPartialPromotion(t *testing.T) {
