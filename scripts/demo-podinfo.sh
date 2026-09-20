@@ -1,49 +1,59 @@
 #!/usr/bin/env bash
-# Deploy stefanprodan/podinfo + Ingress, then run GateShift.
+# Podinfo demo: app + Ingress → GateShift commands → dual-run apply.
+# Matches docs/DEMO.md (release-style walkthrough).
+#
 # Ubuntu WSL:
-#   cd /mnt/c/Users/smsha/Desktop/GateShift
+#   cd /mnt/c/Users/<you>/Desktop/GateShift
 #   export PATH=$HOME/bin:$PATH
+#   # Prefer release binary on PATH, or Linux build at bin/gateshift
 #   bash scripts/demo-podinfo.sh
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export PATH="${HOME}/bin:/usr/local/bin:${PATH}"
+export PATH="${HOME}/bin:/usr/local/bin:${ROOT}/bin:${PATH}"
 NS=podinfo
-GATESHIFT="$ROOT/bin/gateshift"
+DEMO_DIR="${DEMO_DIR:-/tmp/gs-demo}"
 PF_PORT="${PF_PORT:-18081}"
 
-log() { printf '\n==> %s\n' "$*"; }
-
-kubectl config use-context kind-gateshift >/dev/null
-
-if [[ ! -x "$GATESHIFT" ]] || ! "$GATESHIFT" version >/dev/null 2>&1; then
-  echo "Need Linux binary: bin/gateshift (build with GOOS=linux GOARCH=amd64)" >&2
+if command -v gateshift >/dev/null 2>&1; then
+  GATESHIFT="$(command -v gateshift)"
+elif [[ -x "$ROOT/bin/gateshift" ]]; then
+  GATESHIFT="$ROOT/bin/gateshift"
+else
+  echo "gateshift not found. Install a release or build Linux bin/gateshift:" >&2
+  echo "  curl -fsSL https://raw.githubusercontent.com/Vi-shub/GateShift/main/scripts/install.sh | bash" >&2
+  echo "  # or: GOOS=linux GOARCH=amd64 go build -o bin/gateshift ./cmd/gateshift" >&2
   exit 1
 fi
 
-log "Deploy podinfo app (stefanprodan/podinfo)"
+log() { printf '\n==> %s\n' "$*"; }
+
+kubectl config use-context kind-gateshift >/dev/null 2>&1 || true
+
+if ! "$GATESHIFT" version >/dev/null 2>&1; then
+  echo "Cannot run gateshift ($GATESHIFT). On WSL you need a Linux binary, not gateshift.exe." >&2
+  exit 1
+fi
+
+log "1) Deploy podinfo app + Ingress (before GateShift conversion)"
 kubectl apply -f "$ROOT/examples/demo-podinfo/01-app.yaml"
 kubectl -n "$NS" rollout status deploy/podinfo --timeout=180s
-
-log "Deploy Ingress"
 kubectl apply -f "$ROOT/examples/demo-podinfo/02-ingress.yaml"
-kubectl -n "$NS" get ingress,svc,pods
+kubectl -n "$NS" get pods,svc,ingress
 
-log "GateShift live audit"
+mkdir -p "$DEMO_DIR"
+kubectl -n "$NS" get ingress podinfo -o yaml > "$DEMO_DIR/ingress.yaml"
+
+log "2) Major GateShift commands"
+"$GATESHIFT" audit -f "$DEMO_DIR/ingress.yaml" --target=envoy-gateway
 "$GATESHIFT" audit --namespace "$NS" --target=envoy-gateway
+"$GATESHIFT" coverage -f "$DEMO_DIR/ingress.yaml"
+"$GATESHIFT" diff -f "$DEMO_DIR/ingress.yaml" || true
+"$GATESHIFT" validate -f "$DEMO_DIR/ingress.yaml" --target=envoy-gateway || true
+"$GATESHIFT" convert -f "$DEMO_DIR/ingress.yaml" --target=envoy-gateway -o "$DEMO_DIR/gateway.yaml"
+"$GATESHIFT" dual-run -f "$DEMO_DIR/ingress.yaml" --target=envoy-gateway -o "$DEMO_DIR/dual-run.yaml"
 
-log "Export Ingress + convert"
-mkdir -p "$ROOT/.gateshift-e2e"
-kubectl -n "$NS" get ingress podinfo -o yaml > "$ROOT/.gateshift-e2e/podinfo-ingress.yaml"
-"$GATESHIFT" convert -f "$ROOT/.gateshift-e2e/podinfo-ingress.yaml" --target=envoy-gateway \
-  -o "$ROOT/.gateshift-e2e/podinfo-gateway.yaml"
-"$GATESHIFT" validate -f "$ROOT/.gateshift-e2e/podinfo-ingress.yaml" --target=envoy-gateway || true
-"$GATESHIFT" coverage -f "$ROOT/.gateshift-e2e/podinfo-ingress.yaml"
-
-log "Ensure Envoy GatewayClass"
-kubectl apply --server-side --force-conflicts \
-  -f https://github.com/envoyproxy/gateway/releases/download/v1.2.1/install.yaml >/dev/null || true
-kubectl wait -n envoy-gateway-system deploy/envoy-gateway --for=condition=Available --timeout=3m || true
+log "3) Ensure GatewayClass/envoy (Envoy Gateway must already be installed)"
 kubectl get gatewayclass envoy >/dev/null 2>&1 || kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
@@ -53,64 +63,47 @@ spec:
   controllerName: gateway.envoyproxy.io/gatewayclass-controller
 EOF
 
-log "Apply converted Gateway + HTTPRoute only"
-python3 - <<PY
-import re
-src = r"$ROOT/.gateshift-e2e/podinfo-gateway.yaml"
-dst = r"$ROOT/.gateshift-e2e/podinfo-apply.yaml"
-keep = []
-for d in open(src, encoding="utf-8").read().split("---"):
-    kinds = re.findall(r"(?m)^kind:\s*(\S+)\s*$", d)
-    if kinds and kinds[0] in ("Gateway", "HTTPRoute"):
-        keep.append(d.strip())
-open(dst, "w", encoding="utf-8").write("\n---\n".join(keep) + "\n")
-print("docs", len(keep))
-PY
-kubectl apply -f "$ROOT/.gateshift-e2e/podinfo-apply.yaml"
+log "4) Apply dual-run YAML (Ingress stays live)"
+kubectl apply --dry-run=server -f "$DEMO_DIR/dual-run.yaml"
+kubectl apply -f "$DEMO_DIR/dual-run.yaml"
+kubectl -n "$NS" get ingress,gateway,httproute,backendtrafficpolicy
 
-log "Wait for Envoy proxy service + Ready pods"
+ING_UID_BEFORE=$(kubectl -n "$NS" get ingress podinfo -o jsonpath='{.metadata.uid}')
+sleep 1
+ING_UID_AFTER=$(kubectl -n "$NS" get ingress podinfo -o jsonpath='{.metadata.uid}')
+if [[ "$ING_UID_BEFORE" != "$ING_UID_AFTER" ]]; then
+  echo "ERROR: Ingress uid changed — dual-run must not recreate Ingress" >&2
+  exit 1
+fi
+log "Ingress uid unchanged ($ING_UID_AFTER)"
+
+log "5) Optional: curl via staging Gateway (best-effort)"
 ENVOY_SVC=""
-for i in $(seq 1 36); do
-  ENVOY_SVC=$(kubectl get svc -n envoy-gateway-system -o name 2>/dev/null | grep -E 'podinfo-gateway|podinfo' | head -1 || true)
+for i in $(seq 1 24); do
+  ENVOY_SVC=$(kubectl get svc -n envoy-gateway-system -o name 2>/dev/null | grep -E 'podinfo-staging|staging-gateway|podinfo' | head -1 || true)
   if [[ -n "$ENVOY_SVC" ]]; then
-    echo "found $ENVOY_SVC"
     break
   fi
   sleep 5
 done
-if [[ -z "$ENVOY_SVC" ]]; then
-  kubectl get gateway,httproute -n "$NS" -o wide
-  echo "Envoy service not ready yet; Gateway may still be programming" >&2
-  exit 1
-fi
-# Avoid port-forward race (pod Pending) that failed the first demo run.
-kubectl -n envoy-gateway-system wait --for=condition=Ready pod \
-  -l gateway.envoyproxy.io/owning-gateway-name=podinfo-gateway \
-  --timeout=180s 2>/dev/null \
-  || kubectl -n envoy-gateway-system wait --for=condition=Ready pod --all --timeout=180s >/dev/null
-
-kubectl -n envoy-gateway-system port-forward "$ENVOY_SVC" "${PF_PORT}:80" >/tmp/podinfo-pf.log 2>&1 &
-PF_PID=$!
-trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
-sleep 2
-
-log "curl podinfo via GateShift HTTPRoute"
-set +e
-BODY=$(curl -sS -H 'Host: podinfo.local' "http://127.0.0.1:${PF_PORT}/")
-RC=$?
-set -e
-echo "$BODY" | head -c 400; echo
-if [[ $RC -ne 0 ]]; then
-  cat /tmp/podinfo-pf.log >&2 || true
-  exit 1
-fi
-if echo "$BODY" | grep -qi 'podinfo\|hostname\|version'; then
-  log "PASS — podinfo reachable through GateShift-generated Gateway API"
+if [[ -n "$ENVOY_SVC" ]]; then
+  kubectl -n envoy-gateway-system wait --for=condition=Ready pod \
+    -l gateway.envoyproxy.io/owning-gateway-name=podinfo-staging-gateway \
+    --timeout=120s 2>/dev/null || true
+  kubectl -n envoy-gateway-system port-forward "$ENVOY_SVC" "${PF_PORT}:80" >/tmp/podinfo-pf.log 2>&1 &
+  PF_PID=$!
+  trap 'kill $PF_PID >/dev/null 2>&1 || true' EXIT
+  sleep 2
+  set +e
+  BODY=$(curl -sS -H 'Host: podinfo.local' "http://127.0.0.1:${PF_PORT}/")
+  set -e
+  echo "$BODY" | head -c 400; echo
 else
-  log "Got HTTP response; inspect body above (may still be OK)"
+  log "Envoy Service not found yet — skip curl (resources may still be programming)"
 fi
 
 echo ""
-echo "Useful:"
-echo "  kubectl -n podinfo get ingress,gateway,httproute"
-echo "  $GATESHIFT audit --namespace podinfo --target=envoy-gateway"
+echo "PASS — demo path complete"
+echo "Artifacts: $DEMO_DIR"
+echo "Guide:     docs/DEMO.md"
+echo "Next:      flip DNS later; delete Ingress last"

@@ -5,7 +5,7 @@ Hardening release focused on **Envoy Gateway apply compatibility**.
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vi-shub/GateShift/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Vi-shub/GateShift/main/scripts/install.sh | bash
 gateshift version
 ```
 
@@ -28,7 +28,7 @@ Or download the `v0.1.1` assets from the GitHub Release.
 
 - [Envoy Gateway compatibility](EG_COMPAT.md)
 
-## Quick verify
+Video / live walkthrough: [docs/DEMO.md](DEMO.md)
 
 ```bash
 gateshift dual-run -f examples/demo-podinfo/02-ingress.yaml --target=envoy-gateway -o dual-run.yaml

@@ -21,6 +21,7 @@
   <a href="#why-gateshift">Why GateShift</a> ·
   <a href="#corpus-scoreboard">Scoreboard</a> ·
   <a href="#cli-reference">CLI</a> ·
+  <a href="docs/DEMO.md">Demo</a> ·
   <a href="docs/COMPARE.md">Comparison</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
@@ -132,7 +133,7 @@ gateshift dual-run --namespace shop --selector app=checkout --target=envoy-gatew
 
 **Targets:** `standard` · `envoy-gateway` · `cilium` · `istio` · `kong`
 
-**End-to-end demo** (real app on KinD): [examples/demo-podinfo](examples/demo-podinfo) · `bash scripts/demo-podinfo.sh`
+**End-to-end demo / recording guide:** [docs/DEMO.md](docs/DEMO.md) · manifests: [examples/demo-podinfo](examples/demo-podinfo) · helper: `bash scripts/demo-podinfo.sh`
 
 ---
 
@@ -145,14 +146,14 @@ Treat cutover like a release, not a one-shot YAML rewrite:
 2. **Fix or accept L3** — rewrite snippets, or document exceptions  
 3. **Convert + validate** — emit Gateway API YAML; fail closed on hard gaps  
    `gateshift convert …` then `gateshift validate …`
-4. **Dual-run** — keep Ingress live; apply staging Gateway + `*-shadow` HTTPRoute  
+4. **Dual-run** — keep Ingress live; apply staging Gateway + `*-shadow` HTTPRoute (+ policies)  
    `gateshift dual-run -f ingress.yaml --target=envoy-gateway -o dual-run.yaml`  
-   Then `kubectl apply -f dual-run.yaml` (Gateway/HTTPRoute only)
+   Then `kubectl apply -f dual-run.yaml`
 5. **Compare** shadow traffic vs live Ingress  
 6. **GitOps** — `gateshift migrate` or open a PR when ready  
 7. **Cut over** — flip DNS / listeners; **delete Ingress last**
 
-KinD proof for step 4: `bash scripts/test-dual-run.sh` (CI: dual-run smoke job).
+Video / live walkthrough: [docs/DEMO.md](docs/DEMO.md). KinD CI proof: `bash scripts/test-dual-run.sh`.
 
 ---
 
@@ -266,6 +267,7 @@ Logo/                      Project brand asset
 
 | Doc | Description |
 |-----|-------------|
+| [docs/DEMO.md](docs/DEMO.md) | Recording / live demo (podinfo → release → commands → dual-run) |
 | [docs/COMPARE.md](docs/COMPARE.md) | Related tools + provider matrix |
 | [docs/EG_COMPAT.md](docs/EG_COMPAT.md) | Envoy Gateway apply compatibility (EG 1.2+) |
 | [docs/SCOREBOARD.md](docs/SCOREBOARD.md) | How to read the corpus scoreboard |

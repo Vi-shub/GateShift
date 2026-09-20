@@ -151,6 +151,12 @@ SKIP_CLUSTER=1 SKIP_EG=1 bash scripts/e2e-kind.sh
 kind delete cluster --name gateshift
 ```
 
+## Demo / recording
+
+Presenter walkthrough (podinfo + release install + major commands + dual-run apply): [DEMO.md](DEMO.md).
+
+CI dual-run smoke (not for video): `bash scripts/test-dual-run.sh`.
+
 ## Expanding coverage
 
 1. Add fixtures under `examples/corpus/`
