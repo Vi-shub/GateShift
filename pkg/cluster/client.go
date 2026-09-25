@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,30 +53,65 @@ func NewFromClientset(cs kubernetes.Interface) *Client {
 }
 
 func restConfig(opts Options) (*rest.Config, error) {
-	kubeconfig := opts.Kubeconfig
-	if kubeconfig == "" {
-		kubeconfig = os.Getenv("KUBECONFIG")
-	}
-	if kubeconfig == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			kubeconfig = filepath.Join(home, ".kube", "config")
-		}
-	}
-	loading := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
 	overrides := &clientcmd.ConfigOverrides{}
 	if opts.Context != "" {
 		overrides.CurrentContext = opts.Context
 	}
-	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, overrides).ClientConfig()
+
+	var lastErr error
+	for _, kubeconfig := range candidateKubeconfigs(opts.Kubeconfig) {
+		loading := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
+		cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loading, overrides).ClientConfig()
+		if err == nil {
+			return cfg, nil
+		}
+		lastErr = err
+	}
+
+	// Default loading rules (KUBECONFIG env / ~/.kube/config) when no explicit file worked.
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(), overrides).ClientConfig()
 	if err == nil {
 		return cfg, nil
 	}
-	// Fall back to in-cluster when kubeconfig is unavailable.
+	if lastErr == nil {
+		lastErr = err
+	}
+
 	inCluster, icErr := rest.InClusterConfig()
 	if icErr != nil {
-		return nil, fmt.Errorf("kubeconfig (%v) and in-cluster (%v) failed", err, icErr)
+		return nil, fmt.Errorf("kubeconfig (%v) and in-cluster (%v) failed", lastErr, icErr)
 	}
 	return inCluster, nil
+}
+
+func candidateKubeconfigs(explicit string) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" || seen[p] {
+			return
+		}
+		if _, err := os.Stat(p); err != nil {
+			return
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	add(explicit)
+	if env := os.Getenv("KUBECONFIG"); env != "" {
+		for _, p := range filepath.SplitList(env) {
+			add(p)
+		}
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		add(filepath.Join(home, ".kube", "config"))
+	}
+	// Common distro paths (k3s / rke2) when ~/.kube/config was never copied.
+	add("/etc/rancher/k3s/k3s.yaml")
+	add("/etc/rancher/rke2/rke2.yaml")
+	return out
 }
 
 // ListIngresses returns Ingress objects matching ListOptions.

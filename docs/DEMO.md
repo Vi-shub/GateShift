@@ -28,11 +28,14 @@ Do these **once offline**, then hit record.
 
 | # | Task | Pass when |
 |---|------|-----------|
-| 1 | Cluster warm | KinD (or any) up; Envoy Gateway Ready; `kubectl get gatewayclass envoy` works |
-| 2 | Release install in WSL | `curl …/install.sh \| bash` then `gateshift version` prints **0.1.1** (Linux binary, not `.exe`) |
-| 3 | Full rehearsal | Run [Pre-flight rehearsal](#pre-flight-rehearsal-run-once-offline) end-to-end with **zero** apply errors |
-| 4 | Terminal look | Font ≥16–18pt; hide secrets; one clear prompt; zoom ~125–150% |
-| 5 | Optional B-roll | 10s GitHub Releases page + repo README open in browser |
+| 1 | Cluster warm | Any cluster with `kubectl` working |
+| 2 | **Envoy Gateway** | `bash scripts/ensure-envoy-gateway.sh` → `BackendTrafficPolicy` CRD exists |
+| 3 | Release install | `gateshift version` prints **0.1.1** (Linux binary) |
+| 4 | Full rehearsal | Dual-run `kubectl apply` with **zero** CRD errors |
+| 5 | Terminal look | Font ≥16–18pt; hide secrets |
+
+**Critical:** Without Envoy Gateway, Gateway/HTTPRoute apply but `BackendTrafficPolicy` fails (`no matches for kind`). Always run `ensure-envoy-gateway.sh` first.
+
 
 ### Nice-to-have (not blocking)
 
@@ -88,17 +91,15 @@ module github.com/gateshift/gateshift
 ## Pre-flight rehearsal (run once offline)
 
 ```bash
-cd /mnt/c/Users/<you>/Desktop/GateShift   # adjust path
+cd ~/GateShift
 export PATH="$HOME/bin:$PATH"
+# k3s users (if audit --namespace fails):
+#   export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-# Cluster + Envoy Gateway already installed...
-kubectl get gatewayclass envoy
-kubectl get deploy -n envoy-gateway-system
+# REQUIRED — installs Envoy Gateway + BackendTrafficPolicy CRDs
+bash scripts/ensure-envoy-gateway.sh
 
-# Clean slate for podinfo (optional)
 kubectl delete ns podinfo --ignore-not-found
-
-# Full path (or: bash scripts/demo-podinfo.sh)
 kubectl apply -f examples/demo-podinfo/01-app.yaml
 kubectl apply -f examples/demo-podinfo/02-ingress.yaml
 kubectl -n podinfo rollout status deploy/podinfo --timeout=180s
@@ -111,9 +112,10 @@ gateshift dual-run -f /tmp/gs-demo/ingress.yaml --target=envoy-gateway -o /tmp/g
 
 kubectl apply --dry-run=server -f /tmp/gs-demo/dual-run.yaml
 kubectl apply -f /tmp/gs-demo/dual-run.yaml
-
 kubectl -n podinfo get ingress,gateway,httproute,backendtrafficpolicy
 ```
+
+Or one shot: `bash scripts/demo-podinfo.sh` (calls `ensure-envoy-gateway.sh` first).
 
 **Pass criteria**
 
@@ -221,7 +223,10 @@ Keep this in a second window; paste beat-by-beat (do not dump all at once).
 
 ```bash
 export PATH="$HOME/bin:$PATH"
-cd /mnt/c/Users/<you>/Desktop/GateShift
+cd ~/GateShift
+
+# REQUIRED before dual-run apply (BackendTrafficPolicy CRDs)
+bash scripts/ensure-envoy-gateway.sh
 
 kubectl apply -f examples/demo-podinfo/01-app.yaml
 kubectl apply -f examples/demo-podinfo/02-ingress.yaml

@@ -1,48 +1,36 @@
 # GateShift demo (podinfo)
 
-**Recording guide:** [docs/DEMO.md](../../docs/DEMO.md) — read that before you film.
+**Recording guide:** [docs/DEMO.md](../../docs/DEMO.md)
 
-Story: **normal app → install from release → major commands → dual-run apply**.
+Story: **Envoy Gateway ready → normal app → install GateShift → commands → dual-run apply**.
 
-Upstream: [stefanprodan/podinfo](https://github.com/stefanprodan/podinfo)
+## Fix for “no matches for kind BackendTrafficPolicy”
 
-## Remaining before shoot
+That error means Envoy Gateway CRDs are missing. From the repo:
 
-| Status | Item |
-|--------|------|
-| Done | `v0.1.1` release + install assets |
-| Done | EG-compatible dual-run YAML |
-| **You** | Warm cluster (Envoy Gateway + `GatewayClass/envoy`) |
-| **You** | `gateshift version` → **0.1.1** in WSL (Linux binary) |
-| **You** | One offline rehearsal with clean `kubectl apply` |
-
-## Manifests
-
-| File | Purpose |
-|------|---------|
-| `01-app.yaml` | Namespace + Deployment + Service |
-| `02-ingress.yaml` | NGINX-style Ingress (rewrite, CORS, affinity, timeouts) |
+```bash
+cd ~/GateShift
+git pull
+bash scripts/ensure-envoy-gateway.sh
+kubectl apply -f /tmp/gs-demo/dual-run.yaml   # or regenerate dual-run first
+kubectl -n podinfo get ingress,gateway,httproute,backendtrafficpolicy
+```
 
 ## Quick path
 
 ```bash
-# Install (viewers copy this)
-curl -fsSL https://raw.githubusercontent.com/Vi-shub/GateShift/main/scripts/install.sh | bash
 export PATH="$HOME/bin:$PATH"
+# k3s: export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-# App first (no GateShift yet)
+bash scripts/ensure-envoy-gateway.sh   # REQUIRED
+
 kubectl apply -f examples/demo-podinfo/01-app.yaml
 kubectl apply -f examples/demo-podinfo/02-ingress.yaml
 
-# Commands + apply (full script in docs/DEMO.md)
 mkdir -p /tmp/gs-demo
 kubectl -n podinfo get ingress podinfo -o yaml > /tmp/gs-demo/ingress.yaml
-gateshift audit -f /tmp/gs-demo/ingress.yaml --target=envoy-gateway
 gateshift dual-run -f /tmp/gs-demo/ingress.yaml --target=envoy-gateway -o /tmp/gs-demo/dual-run.yaml
 kubectl apply -f /tmp/gs-demo/dual-run.yaml
-kubectl -n podinfo get ingress,gateway,httproute,backendtrafficpolicy
 ```
 
-Payoff: **Ingress still live** + staging Gateway + `podinfo-shadow` HTTPRoute.
-
-Rehearsal helper: `bash scripts/demo-podinfo.sh`
+Or: `bash scripts/demo-podinfo.sh` (installs EG first).
