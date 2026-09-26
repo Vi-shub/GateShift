@@ -3,6 +3,7 @@ package convert
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 
 	"github.com/gateshift/gateshift/pkg/ir"
 )
@@ -28,6 +29,28 @@ func FinalizeIR(bundle *ir.MigrationBundle) {
 		return a.Value < b.Value
 	})
 	ir.AnnotateRequiredFeatures(bundle)
+}
+
+// StripExtensionPolicies removes BackendTrafficPolicy and SecurityPolicy from bundle.
+// Use when Envoy Gateway CRDs are not installed on the cluster.
+func StripExtensionPolicies(bundle *ir.MigrationBundle) {
+	if bundle == nil {
+		return
+	}
+	filtered := make([]ir.PolicyIR, 0, len(bundle.Policies))
+	for _, pol := range bundle.Policies {
+		kind, _ := pol.Spec["kind"].(string)
+		apiVersion, _ := pol.Spec["apiVersion"].(string)
+		// Skip Envoy Gateway extension policies
+		if strings.HasPrefix(apiVersion, "gateway.envoyproxy.io/") {
+			switch kind {
+			case "BackendTrafficPolicy", "SecurityPolicy", "ClientTrafficPolicy":
+				continue
+			}
+		}
+		filtered = append(filtered, pol)
+	}
+	bundle.Policies = filtered
 }
 
 // MarshalIRJSON returns canonical IR JSON for golden tests.

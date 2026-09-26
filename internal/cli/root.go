@@ -28,6 +28,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(newMigrateCmd())
 	cmd.AddCommand(newCoverageCmd())
 	cmd.AddCommand(newScoreboardCmd())
+	cmd.AddCommand(newPreflightCmd())
 	cmd.AddCommand(newVersionCmd())
 	return cmd
 }

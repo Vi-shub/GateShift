@@ -192,7 +192,17 @@ How to read it: [docs/SCOREBOARD.md](docs/SCOREBOARD.md) · latest numbers: [doc
 | `migrate` | Convert + GitHub PR or local dry-run pack |
 | `coverage` | Catalog coverage and per-key `[OK]` / `[GAP]` / `[??]` |
 | `scoreboard` | Corpus report across Envoy / Cilium / Istio / Kong / standard |
+| `preflight` | Check cluster prerequisites (CRDs, controllers) before migration |
 | `version` | Print CLI version |
+
+### Useful flags
+
+| Flag | Commands | Purpose |
+|------|----------|---------|
+| `--skip-extension-policies` | `convert`, `dual-run`, `migrate` | Skip emitting BackendTrafficPolicy/SecurityPolicy when Envoy Gateway CRDs are not installed |
+| `--http-only` | `convert`, `dual-run` | Emit HTTP listeners only (skip HTTPS/TLS for lab clusters) |
+| `--preserve-nginx-regex` | `convert`, `dual-run` | Preserve Ingress-NGINX regex semantics |
+| `--fix` | `preflight` | Print installation commands for missing components |
 
 ---
 
@@ -268,6 +278,7 @@ Logo/                      Project brand asset
 | Doc | Description |
 |-----|-------------|
 | [docs/DEMO.md](docs/DEMO.md) | Recording / live demo (podinfo → release → commands → dual-run) |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common errors and fixes (CRDs, kubeconfig, etc.) |
 | [docs/COMPARE.md](docs/COMPARE.md) | Related tools + provider matrix |
 | [docs/EG_COMPAT.md](docs/EG_COMPAT.md) | Envoy Gateway apply compatibility (EG 1.2+) |
 | [docs/SCOREBOARD.md](docs/SCOREBOARD.md) | How to read the corpus scoreboard |

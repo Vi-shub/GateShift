@@ -12,20 +12,21 @@ import (
 
 func newDualRunCmd() *cobra.Command {
 	var (
-		file               string
-		namespace          string
-		allNamespaces      bool
-		selector           string
-		output             string
-		target             string
-		gwClass            string
-		gwName             string
-		noGW               bool
-		preserveRegex      bool
-		trailingSlashRedir bool
-		httpOnly           bool
-		kubeconfig         string
-		kubeCtx            string
+		file                  string
+		namespace             string
+		allNamespaces         bool
+		selector              string
+		output                string
+		target                string
+		gwClass               string
+		gwName                string
+		noGW                  bool
+		preserveRegex         bool
+		trailingSlashRedir    bool
+		httpOnly              bool
+		kubeconfig            string
+		kubeCtx               string
+		skipExtensionPolicies bool
 	)
 	cmd := &cobra.Command{
 		Use:   "dual-run",
@@ -82,6 +83,9 @@ Prints a cutover checklist to stderr; YAML goes to stdout or -o.`,
 				GatewayName:    convertOpts.GatewayName,
 				IncludeGateway: !noGW,
 			})
+			if skipExtensionPolicies {
+				convert.StripExtensionPolicies(bundle)
+			}
 
 			yamlBytes, err := convert.EmitYAML(bundle)
 			if err != nil {
@@ -116,5 +120,6 @@ Prints a cutover checklist to stderr; YAML goes to stdout or -o.`,
 	cmd.Flags().BoolVar(&preserveRegex, "preserve-nginx-regex", false, "Emit case-insensitive prefix RegularExpression matches for Ingress-NGINX regex-forced hosts")
 	cmd.Flags().BoolVar(&trailingSlashRedir, "emit-trailing-slash-redirects", false, "Emit 301 redirects for /path → /path/ (Ingress-NGINX trailing-slash behavior)")
 	cmd.Flags().BoolVar(&httpOnly, "http-only", false, "Emit HTTP listeners only (skip HTTPS, TLS secrets, Certificate docs)")
+	cmd.Flags().BoolVar(&skipExtensionPolicies, "skip-extension-policies", false, "Skip emitting BackendTrafficPolicy/SecurityPolicy (use when Envoy Gateway CRDs are not installed)")
 	return cmd
 }

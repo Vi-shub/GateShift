@@ -16,14 +16,15 @@ import (
 
 func newMigrateCmd() *cobra.Command {
 	var (
-		file       string
-		target     string
-		gwClass    string
-		repo       string
-		baseBranch string
-		dryRunDir  string
-		autoPR     bool
-		output     string
+		file                  string
+		target                string
+		gwClass               string
+		repo                  string
+		baseBranch            string
+		dryRunDir             string
+		autoPR                bool
+		output                string
+		skipExtensionPolicies bool
 	)
 	cmd := &cobra.Command{
 		Use:   "migrate",
@@ -58,6 +59,9 @@ func newMigrateCmd() *cobra.Command {
 				combined.Gateways = append(combined.Gateways, bundle.Gateways...)
 				combined.Policies = append(combined.Policies, bundle.Policies...)
 				combined.Certificates = append(combined.Certificates, bundle.Certificates...)
+			}
+			if skipExtensionPolicies {
+				convert.StripExtensionPolicies(combined)
 			}
 			yamlBytes, err := convert.EmitYAML(combined)
 			if err != nil {
@@ -109,5 +113,6 @@ func newMigrateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&dryRunDir, "dry-run-dir", "", "Write PR artifacts locally")
 	cmd.Flags().BoolVar(&autoPR, "auto-pr", false, "Create a real GitHub PR when GITHUB_TOKEN is set")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Also write converted YAML to this path")
+	cmd.Flags().BoolVar(&skipExtensionPolicies, "skip-extension-policies", false, "Skip emitting BackendTrafficPolicy/SecurityPolicy (use when Envoy Gateway CRDs are not installed)")
 	return cmd
 }

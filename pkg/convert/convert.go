@@ -33,6 +33,9 @@ type Options struct {
 	// HTTPOnly emits HTTP listeners only: skips HTTPS listeners, TLS secrets,
 	// Certificate docs, and HTTPS redirect filters (useful for lab clusters).
 	HTTPOnly bool
+	// SkipExtensionPolicies skips emitting BackendTrafficPolicy/SecurityPolicy
+	// resources. Use when targeting Envoy Gateway but EG CRDs are not installed.
+	SkipExtensionPolicies bool
 
 	// quirkHostRegex is set by FromIngresses after multi-Ingress analysis.
 	quirkHostRegex map[string]bool
